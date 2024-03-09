@@ -1,2 +1,2 @@
-# convexity
-Spatial convexity descriptor for object enlacement
+# Spatial convexity descriptor for object enlacement
+Readme

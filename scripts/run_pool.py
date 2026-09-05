@@ -72,6 +72,12 @@ def resolve_dirs(spec: str, max_norm2: int, max_component: int):
         return directions.slot_set(n, tol)
     if spec.startswith("cheapest"):      # e.g. cheapest10
         return directions.cheapest_k(int(spec[8:]))
+    if spec.startswith("list:"):         # e.g. list:1x0,10x3,1x1
+        out = []
+        for token in spec[5:].split(","):
+            p, q = token.lower().split("x")
+            out.append(directions.Direction(int(p), int(q)))
+        return directions.by_angle(out)
     raise SystemExit(f"unknown --dirs {spec!r}")
 
 

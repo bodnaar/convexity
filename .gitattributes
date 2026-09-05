@@ -1,0 +1,12 @@
+# Normalise line endings.
+#
+# Without this, a Windows clone rewrites every file to CRLF on checkout and
+# `git status` reports all tracked files as fully modified (1032 insertions,
+# 1032 deletions on the initial clone), which makes every diff to the
+# execution server unreadable.
+* text=auto eol=lf
+
+*.png binary
+*.gif binary
+*.pdf binary
+*.zip binary

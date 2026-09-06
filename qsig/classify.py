@@ -32,7 +32,7 @@ def loo_1nn(sigs: np.ndarray, labels, metric: str = "dC") -> float:
     return loo_1nn_from_distances(dist, labels)
 
 
-def build_signatures(table: dict, shapes, dirs):
+def build_signatures(table: dict, shapes, dirs, family: str = "S"):
     """Assemble an (N, k) signature matrix from a results table.
 
     `table` is `qsig.store.load_table` output; `shapes` a list of
@@ -46,7 +46,7 @@ def build_signatures(table: dict, shapes, dirs):
     for sh in shapes:
         vals = []
         for d in dirs:
-            key = (sh.shape_id, d.p, d.q, resolution)
+            key = (sh.shape_id, d.p, d.q, resolution, family)
             if key not in table:
                 raise KeyError(f"missing result for {key}")
             vals.append(table[key]["E"])
@@ -56,19 +56,25 @@ def build_signatures(table: dict, shapes, dirs):
     return np.array(rows, dtype=float), labels, ids
 
 
-def measured_cost(table: dict, shapes, dirs, statistic: str = "median") -> float:
-    """Mean/median seconds to compute one full signature, from the table.
+def measured_cost(table: dict, shapes, dirs, statistic: str = "median",
+                  family: str = "S") -> float:
+    """Seconds per signature as RECORDED IN THE TABLE. Usually the wrong number.
 
-    This is the x-axis of the paper's headline figure. Medians are more robust
-    to a stray scheduling event over a long run; report both (handoff sec 7.2).
+    A pool run has 20 workers contending for memory bandwidth and L3, which
+    inflates per-job times by roughly 3x and unevenly across directions. Handoff
+    sec 7.2: bulk runs optimise throughput, published timings come from pinned
+    single-process measurement runs. For any cost quoted in the paper use
+    `qsig.directions.cost_of`, which prices from the fitted law.
+
+    Kept only for diagnosing a run against its own model.
     """
     resolution = max(shapes[0].img.shape)
     total = 0.0
     for d in dirs:
         secs = [
-            table[(sh.shape_id, d.p, d.q, resolution)]["seconds"]
+            table[(sh.shape_id, d.p, d.q, resolution, family)]["seconds"]
             for sh in shapes
-            if (sh.shape_id, d.p, d.q, resolution) in table
+            if (sh.shape_id, d.p, d.q, resolution, family) in table
         ]
         if not secs:
             raise KeyError(f"no timings for direction ({d.p},{d.q})")

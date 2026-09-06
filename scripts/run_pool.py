@@ -35,14 +35,16 @@ import qsig.threadguard  # noqa: E402,F401  -- MUST precede numpy
 import multiprocessing as mp  # noqa: E402
 import time  # noqa: E402
 
-from qsig import dataset, descriptor, directions, store  # noqa: E402
+from qsig import dataset, descriptor, directions, rotational, store  # noqa: E402
 from qsig.descriptor import q_concavity  # noqa: E402
 
 _SHAPES = {}
 _IMPL = "reference"
+_FAMILY = "S"
+_EXPAND = True
 
 
-def _init(shapes, impl):
+def _init(shapes, impl, family="S", expand=True):
     """Runs once per worker process.
 
     Warming the JIT here is not an optimisation, it is a correctness
@@ -50,8 +52,8 @@ def _init(shapes, impl):
     roughly a second, and without this that compile lands inside whichever job
     the worker happens to pick up first and inflates it by ~1000x.
     """
-    global _IMPL
-    _IMPL = impl
+    global _IMPL, _FAMILY, _EXPAND
+    _IMPL, _FAMILY, _EXPAND = impl, family, expand
     for sh in shapes:
         _SHAPES[sh.shape_id] = sh
     descriptor.warm_up(impl)
@@ -61,9 +63,12 @@ def _job(args):
     shape_id, p, q, resolution = args
     sh = _SHAPES[shape_id]
     d = directions.Direction(p, q)
-    value, secs = q_concavity(sh.img, d, _IMPL)
+    if _FAMILY == "R":
+        value, secs = rotational.rotational_value(sh.img, d, _IMPL, expand=_EXPAND)
+    else:
+        value, secs = q_concavity(sh.img, d, _IMPL)
     return {
-        "shape_id": shape_id, "cls": sh.cls, "p": p, "q": q,
+        "shape_id": shape_id, "cls": sh.cls, "p": p, "q": q, "family": _FAMILY,
         "angle_deg": round(d.angle, 6), "norm2": d.norm2,
         "resolution": resolution, "E": value, "seconds": secs,
     }
@@ -81,6 +86,8 @@ def resolve_dirs(spec: str, max_norm2: int, max_component: int):
         n = int(body[0][4:])
         tol = float(body[1]) if len(body) > 1 else 90.0 / n / 2
         return directions.slot_set(n, tol)
+    if spec.startswith("maxgap"):        # e.g. maxgap10 or maxgap8.5
+        return directions.min_cost_maxgap(float(spec[6:]))
     if spec.startswith("cheapest"):      # e.g. cheapest10
         return directions.cheapest_k(int(spec[8:]))
     if spec.startswith("list:"):         # e.g. list:1x0,10x3,1x1
@@ -108,6 +115,14 @@ def main():
                     help="'reference' = convexity.Convexity as published; "
                          "'fast' = qsig.fast (int64 + numba). Cost constants differ "
                          "between them, so never mix them in one table.")
+    ap.add_argument("--family", choices=("S", "R"), default="S",
+                    help="S = rotation-free (evaluate the slanted pair); "
+                         "R = rotational (rotate the image, evaluate at (1,0)). "
+                         "Different descriptors, never mixed in one signature.")
+    ap.add_argument("--no-rot-expand", action="store_true",
+                    help="family R: rotate inside the original canvas, clipping the "
+                         "corners. IWCIA's flat 2.54 s/component implies they did this; "
+                         "the default expands the canvas so no object pixels are lost.")
     ap.add_argument("--pinned", action="store_true", help="record that workers were CPU-pinned")
     ap.add_argument("--limit", type=int, default=0, help="debug: only the first N shapes")
     args = ap.parse_args()
@@ -120,7 +135,7 @@ def main():
 
     tag = descriptor.implementation_tag(args.impl)
     st = store.ResultStore(args.out, repo_dir=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                           pinned=args.pinned, impl=tag)
+                           pinned=args.pinned, impl=tag, family=args.family)
     st.write_meta({
         **dataset.protocol_metadata(args.long_side),
         "subset": args.subset,
@@ -130,6 +145,8 @@ def main():
         "directions": [[d.p, d.q] for d in dirs],
         "workers": args.workers,
         "impl": tag,
+        "family": args.family,
+        "rot_expand": (args.family == "R") and not args.no_rot_expand,
         "threadguard": qsig.threadguard.report(),
     })
 
@@ -137,15 +154,16 @@ def main():
     todo = [
         (sh.shape_id, d.p, d.q, args.long_side)
         for sh in shapes for d in dirs
-        if (sh.shape_id, d.p, d.q, args.long_side) not in done
+        if (sh.shape_id, d.p, d.q, args.long_side, args.family) not in done
     ]
-    predicted = len(shapes) * directions.total_cost(dirs) / max(1, args.workers)
+    model = tag if tag in directions.COST_MODELS else "rows+numba"
+    predicted = len(shapes) * directions.cost_of(dirs, model) / max(1, args.workers)
     print(f"{len(shapes)} shapes x {len(dirs)} directions = {len(shapes)*len(dirs)} jobs; "
           f"{len(done)} already done, {len(todo)} to run")
     print(f"governor={st.governor} host={st.host} commit={st.commit} "
-          f"workers={args.workers} impl={tag}")
-    print(f"predicted wall clock from the IWCIA-fitted cost law: {predicted/60:.1f} min "
-          f"(refit on this machine before quoting -- scripts/fit_cost_law.py)")
+          f"workers={args.workers} impl={tag} family={args.family}")
+    print(f"predicted wall clock from the measured '{model}' cost law: "
+          f"{predicted/60:.1f} min")
     if not todo:
         return
 
@@ -153,7 +171,8 @@ def main():
     written = 0
     buf = []
     ctx = mp.get_context("spawn" if os.name == "nt" else "fork")
-    with ctx.Pool(args.workers, initializer=_init, initargs=(shapes, args.impl)) as pool_:
+    with ctx.Pool(args.workers, initializer=_init, initargs=(shapes, args.impl, args.family,
+                                        not args.no_rot_expand)) as pool_:
         for i, row in enumerate(pool_.imap_unordered(_job, todo, chunksize=1), 1):
             buf.append(row)
             if len(buf) >= 200:

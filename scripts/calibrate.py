@@ -45,7 +45,7 @@ import qsig.threadguard  # noqa: E402,F401  -- MUST precede numpy
 
 import numpy as np  # noqa: E402
 
-from qsig import dataset, descriptor, directions, store  # noqa: E402
+from qsig import dataset, descriptor, directions, fast, store  # noqa: E402
 from qsig.descriptor import q_concavity  # noqa: E402
 
 # A spread of |r|^2 from 1 to 109 so the law can be fitted, PLUS the
@@ -95,8 +95,13 @@ def fit(x, y):
     return a, b, r2, float(np.abs((pred - y) / y).mean() * 100)
 
 
-def fit_area_normalised(area, n2, secs):
-    """Fit t = A * (c0 + c1 * n2) over every individual (shape, direction) run.
+def fit_area_normalised(area, xval, secs):
+    """Fit t = A * (c0 + c1 * x) over every individual (shape, direction) run.
+
+    `x` is the cost predictor of the kernel being timed -- |r|^2 for the point
+    kernel, p+q for the rows kernel. Hard-coding |r|^2 here was a bug of the
+    same kind as offering only two candidate models: it reported R^2 = 0.84 for
+    the rows kernel and made a correct implementation look wrong.
 
     With --subset all the image areas span 2048..16384 px, an 8x range, and both
     the direction-independent and the direction-dependent work scale with area.
@@ -109,9 +114,9 @@ def fit_area_normalised(area, n2, secs):
     Returns c0, c1 in seconds per pixel, plus R^2 over the individual runs.
     """
     A = np.asarray(area, float)
-    n2 = np.asarray(n2, float)
+    xv = np.asarray(xval, float)
     y = np.asarray(secs, float)
-    X = np.vstack([A, A * n2]).T
+    X = np.vstack([A, A * xv]).T
     (c0, c1), *_ = np.linalg.lstsq(X, y, rcond=None)
     pred = X @ np.array([c0, c1])
     r2 = 1 - ((y - pred) ** 2).sum() / max(((y - y.mean()) ** 2).sum(), 1e-30)
@@ -170,8 +175,8 @@ def main():
               "reference\n   implementation on a 2016 stack, not comparable to this one)")
     print("-" * 68)
     med = []
-    obs_area, obs_n2, obs_sec = [], [], []
-    for d in dirs:
+    obs_area, obs_n2, obs_sec, obs_idx = [], [], [], []
+    for di_, d in enumerate(dirs):
         pad = max(d.p, d.q)
         secs, rows = [], []
         for sh in shapes:
@@ -180,6 +185,7 @@ def main():
             h, w = sh.img.shape
             obs_area.append((h + 2 * pad) * (w + 2 * pad))
             obs_n2.append(d.norm2)
+            obs_idx.append(di_)
             obs_sec.append(dt)
             rows.append({"shape_id": sh.shape_id, "cls": sh.cls, "p": d.p, "q": d.q,
                          "angle_deg": round(d.angle, 6), "norm2": d.norm2,
@@ -198,60 +204,98 @@ def main():
         print("\nGive at least 3 directions (--dirs) to fit the cost law; two points fit any line.")
         return
 
-    x1 = [d.norm2 for d in dirs]
-    x2 = [(d.p + d.q) ** 2 for d in dirs]
-    a1, b1, r1, m1 = fit(x1, med)
-    a2, b2, r2_, m2 = fit(x2, med)
-    print(f"\ncost-law fit on THIS machine ({len(dirs)} directions, medians):")
-    print(f"  |r|^2 = |det(r,r_perp)|      T = {a1:7.4f} + {b1:.5f}*x   R2={r1:.5f}  MAPE={m1:5.2f}%")
-    print(f"  (r1+r2)^2  [published bound] T = {a2:7.4f} + {b2:.5f}*x   R2={r2_:.5f}  MAPE={m2:5.2f}%")
-    print(f"  published (IWCIA Table 1)    T = {directions.COST_IWCIA[0]:7.4f} + "
-          f"{directions.COST_IWCIA[1]:.5f}*|r|^2")
+    # ------------------------------------------------------------------
+    # Candidate cost models.
+    #
+    # WHICH MODELS ARE OFFERED MATTERS. A fit can only pick the best of the
+    # candidates it is given: with |r|^2 and (p+q)^2 as the only options, the
+    # rows kernel -- which is Theta(mn(p+q)) by construction -- was reported as
+    # "follows |r|^2", because |r|^2 was the closer of two wrong answers. So the
+    # operation count of the kernel ACTUALLY RUNNING is always a candidate, and
+    # every model is shown ranked rather than a single verdict being asserted.
+    # ------------------------------------------------------------------
+    oc = [fast.operation_counts(d.vec) for d in dirs]
+    kernel_ops = ("rows_ops" if args.impl == "rows" else "points_ops")
+    candidates = {
+        "|r|^2 = |det(r,r_perp)|": [d.norm2 for d in dirs],
+        "(p+q)^2  [published bound]": [(d.p + d.q) ** 2 for d in dirs],
+        "p+q": [d.p + d.q for d in dirs],
+        f"operation count ({kernel_ops})": [o[kernel_ops] for o in oc],
+    }
+    print(f"\ncost-model fit on THIS machine ({len(dirs)} directions, medians), ranked:")
+    fits = {}
+    for name, x in candidates.items():
+        a_, b_, r_, m_ = fit(x, med)
+        fits[name] = (a_, b_, r_, m_, x)
+    for name in sorted(fits, key=lambda n: -fits[n][2]):
+        a_, b_, r_, m_, _ = fits[name]
+        print(f"  {name:30s} T = {a_:8.5f} + {b_:.6f}*x   R2={r_:.5f}  MAPE={m_:5.2f}%")
+    best = max(fits, key=lambda n: fits[n][2])
+    print(f"  {'published (IWCIA Table 1)':30s} T = {directions.COST_IWCIA[0]:8.5f} + "
+          f"{directions.COST_IWCIA[1]:.6f}*|r|^2")
 
-    # Per-shape fit: removes image-area variation, which is large under --subset all.
-    c0, c1, r_area = fit_area_normalised(obs_area, obs_n2, obs_sec)
+    bx = candidates[best]
+    obs_x = [bx[k] for k in obs_idx]
+    c0, c1, r_area = fit_area_normalised(obs_area, obs_x, obs_sec)
     ref = (args.long_side + 2) ** 2
-    print(f"\narea-normalised fit over all {len(obs_sec)} individual runs "
-          f"(padded area, so shape size is not charged to the residuals):")
-    print(f"  t = A * ({c0 * 1e6:.3f} + {c1 * 1e6:.5f} * |r|^2) microseconds per padded pixel"
+    ref_dir = directions.Direction(10, 3)
+    x109 = {"|r|^2 = |det(r,r_perp)|": ref_dir.norm2,
+            "(p+q)^2  [published bound]": (ref_dir.p + ref_dir.q) ** 2,
+            "p+q": ref_dir.p + ref_dir.q}.get(
+        best, fast.operation_counts(ref_dir.vec)[kernel_ops])
+    print(f"\narea-normalised fit over all {len(obs_sec)} individual runs, in the "
+          f"best-fitting predictor\n({best}; padded area, so shape size is not charged "
+          f"to the residuals):")
+    print(f"  t = A * ({c0 * 1e6:.3f} + {c1 * 1e6:.5f} * x) microseconds per padded pixel"
           f"   R2={r_area:.5f}")
     print(f"  at a {args.long_side}x{args.long_side} shape that is "
-          f"T = {c0 * ref:.4f} + {c1 * ref:.5f}*|r|^2 s")
-    print(f"  direction-dependent share at |r|^2=109: "
-          f"{c1 * 109 / (c0 + c1 * 109) * 100:.1f}% of the work")
+          f"T = {c0 * ref:.5f} + {c1 * ref:.6f}*x s")
+    print(f"  direction-dependent share at (10,3): "
+          f"{c1 * x109 / (c0 + c1 * x109) * 100:.1f}% of the work")
 
-    # --- model discrimination -------------------------------------------
-    # Group directions whose |r|^2 agree to within 15% but whose (p+q)^2 differ
-    # by more than 25%. Within such a group the two models make sharply
-    # different predictions, so the comparison is decisive rather than statistical.
+    # ------------------------------------------------------------------
+    # Model discrimination, WITH the padding correction.
+    #
+    # pad = max(p,q), so directions of equal |r|^2 can still walk arrays of
+    # different size -- (7,8) pads by 8 where (10,3) pads by 10 and is therefore
+    # ~6% cheaper for reasons that have nothing to do with the cost model.
+    # Comparing raw seconds across the triple silently charges that to whichever
+    # model is on trial.
+    # ------------------------------------------------------------------
+    areas = {}
+    for d, o in zip(dirs, oc):
+        pad = max(d.p, d.q)
+        areas[(d.p, d.q)] = np.mean([(sh.img.shape[0] + 2 * pad) * (sh.img.shape[1] + 2 * pad)
+                                     for sh in shapes])
     groups = []
     for i, di in enumerate(dirs):
-        grp = [j for j, dj in enumerate(dirs)
-               if abs(dj.norm2 - di.norm2) <= 0.15 * di.norm2]
+        grp = [j for j, dj in enumerate(dirs) if abs(dj.norm2 - di.norm2) <= 0.15 * di.norm2]
         if len(grp) >= 2:
             box = [(dirs[j].p + dirs[j].q) ** 2 for j in grp]
             if max(box) > 1.25 * min(box):
                 grp = tuple(sorted(grp))
                 if grp not in groups:
                     groups.append(grp)
-    if groups:
+    rng = lambda v: (max(v) / min(v) - 1) * 100
+    for grp in groups:
+        base = areas[(dirs[grp[-1]].p, dirs[grp[-1]].q)]
         print("\nmodel discrimination -- near-equal |r|^2, very different (p+q)^2:")
-        print(f"  {'dir':>8s} {'|r|^2':>6s} {'(p+q)^2':>8s} {'measured':>9s} "
-              f"{'pred |r|^2':>11s} {'pred (p+q)^2':>13s}")
-        for grp in groups:
-            for j in grp:
-                d = dirs[j]
-                box = (d.p + d.q) ** 2
-                print(f"  {f'({d.p},{d.q})':>8s} {d.norm2:6d} {box:8d} {med[j]:9.4f} "
-                      f"{a1 + b1 * d.norm2:11.4f} {a2 + b2 * box:13.4f}")
-            obs = [med[j] for j in grp]
-            pn = [a1 + b1 * dirs[j].norm2 for j in grp]
-            pb = [a2 + b2 * (dirs[j].p + dirs[j].q) ** 2 for j in grp]
-            rng = lambda v: (max(v) / min(v) - 1) * 100
-            print(f"  spread within this group:  measured {rng(obs):5.1f}%   "
-                  f"|r|^2 predicts {rng(pn):5.1f}%   (p+q)^2 predicts {rng(pb):5.1f}%")
-            verdict = "|r|^2" if abs(rng(obs) - rng(pn)) < abs(rng(obs) - rng(pb)) else "(p+q)^2"
-            print(f"  -> the measurement follows {verdict}")
+        print(f"  {'dir':>8s} {'|r|^2':>6s} {'(p+q)^2':>8s} {'p+q':>4s} {'ops':>5s} "
+              f"{'measured':>9s} {'per padded area':>16s}")
+        corr = []
+        for j in grp:
+            d = dirs[j]
+            c = med[j] / (areas[(d.p, d.q)] / base)
+            corr.append(c)
+            print(f"  {f'({d.p},{d.q})':>8s} {d.norm2:6d} {(d.p + d.q) ** 2:8d} "
+                  f"{d.p + d.q:4d} {oc[j][kernel_ops]:5d} {med[j]:9.5f} {c:16.5f}")
+        print(f"  spread across this group -- measured raw {rng([med[j] for j in grp]):5.1f}%, "
+              f"area-corrected {rng(corr):5.1f}%")
+        for name, xs in candidates.items():
+            print(f"      {name:30s} predicts {rng([xs[j] for j in grp]):5.1f}%")
+        winner = min(candidates,
+                     key=lambda n: abs(rng([candidates[n][j] for j in grp]) - rng(corr)))
+        print(f"  -> the area-corrected measurement follows: {winner}")
 
     cheap, dear = med[0], med[-1]
     spread = dear / cheap
@@ -259,46 +303,22 @@ def main():
     print(f"\ncost spread, dearest / cheapest direction:")
     print(f"  this machine  {spread:6.2f}x   ({dirs[-1].p},{dirs[-1].q}) vs ({dirs[0].p},{dirs[0].q})")
     print(f"  IWCIA Table 1 {pub_spread:6.2f}x   (10,3) vs (1,0)")
-    print(f"  cost-aware selection is worth roughly the spread, so this is the number")
-    print(f"  the paper's saving scales with -- not the published one.")
+    print("  cost-aware selection is worth roughly the spread, so this is the number")
+    print("  the paper's saving scales with -- not the published one.")
 
     print()
-    if r1 > 0.98 and r1 > r2_:
-        print("VERDICT: THE COST LAW HOLDS on this machine.")
-        print(f"         T = {a1:.4f} + {b1:.5f}*|r|^2, R2 = {r1:.4f}, and it beats the")
-        print(f"         published (r1+r2)^2 bound (R2 = {r2_:.4f}). The proposition is")
-        print("         confirmed independently of the published constants.")
-        print()
-        print("         The CONSTANTS differ from IWCIA Table 1 and are not expected to")
-        print("         match: in an interpreted implementation they are dominated by")
-        print("         interpreter and numpy-scalar overheads, which have changed a lot")
-        print("         since Ubuntu 16.04. Report this machine's own measurements, state")
-        print("         the software stack printed above, and do NOT quote their seconds")
-        print("         alongside your accuracies (handoff sec 3.1.1).")
-    elif r1 > 0.98 and r2_ >= r1:
-        print("VERDICT: the |r|^2 law fits well (R2 = "
-              f"{r1:.4f}) but this direction set does NOT")
-        print(f"         separate it from the (p+q)^2 bound (R2 = {r2_:.4f}).")
-        print("         That is a property of the SET, not of the machine: over these")
-        print("         directions the two quantities rank the same way, so both models")
-        print("         fit whatever the truth is. No amount of extra shapes will fix it.")
-        print("         Re-run including the discriminating triple, which is in the")
-        print("         default --dirs:   --dirs 1x0,2x1,3x1,5x1,1x7,10x1,10x3,7x8")
-        print("         (10,1) (10,3) (7,8) have |r|^2 = 101,109,113 but (p+q)^2 =")
-        print("         121,169,225, so the models predict a ~12% vs ~86% spread across")
-        print("         them and one measurement settles it. See the discrimination")
-        print("         table above if it was printed.")
-    elif r1 > 0.9:
-        print("VERDICT: the law roughly holds but the fit is loose (R2 = "
-              f"{r1:.3f}). Most likely another process is on the machine -- check the")
-        print("         loadavg above and re-run when it is near 1.0. Contention inflates")
-        print("         long directions more than short ones.")
+    print(f"VERDICT: best-fitting cost model on this machine for impl={tag}:")
+    print(f"         {best}   (R2 = {fits[best][2]:.4f})")
+    expected = "p+q" if args.impl == "rows" else "|r|^2 = |det(r,r_perp)|"
+    if best.startswith(expected) or best.startswith("operation count"):
+        print(f"         This is what the algorithm predicts for this kernel. Good.")
     else:
-        print(f"VERDICT: the |r|^2 law does NOT fit here (R2 = {r1:.3f}). This is the one")
-        print("         outcome that threatens the paper's proposition. Before concluding")
-        print("         anything, re-run on a quiet machine; then check the mask geometry")
-        print("         with tests/test_fast_matches_reference.py::"
-              "test_mask_offset_count_equals_pick_bound.")
+        print(f"         EXPECTED {expected} for impl={tag}. Investigate before")
+        print("         trusting any cost number from this run.")
+    print("         The CONSTANTS never transfer between implementations or software")
+    print("         stacks; only the functional form does. Report this machine's own")
+    print("         measurements with the stack printed above, and never quote IWCIA")
+    print("         Table 1 seconds alongside accuracies measured here (handoff 3.1.1).")
 
 
 if __name__ == "__main__":

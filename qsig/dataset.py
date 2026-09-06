@@ -48,21 +48,29 @@ class Shape:
 
 
 def _binarise(arr: np.ndarray) -> np.ndarray:
-    """Return a {0,1} uint8 array with the *shape* as 1.
+    """Return a {0,1} uint8 array with the *shape* as 1: bright is the object.
 
-    MPEG-7 gifs are a white silhouette on black. Rather than trust that, take
-    the minority intensity class as the object -- silhouettes occupy well under
-    half the frame in this dataset -- and fall back to 'bright is object' if the
-    split is near even.
+    This MUST match the preprocessing that produced the published numbers
+    (IWCIA 2025), which is `cv2.threshold(img, 128, 255, THRESH_BINARY)` --
+    a fixed threshold, bright is object, no adaptation.
+
+    An earlier version of this function took the MINORITY intensity class as the
+    object, on the reasoning that silhouettes occupy well under half the frame.
+    They do not: measured across all 1402 images, the bright fraction runs from
+    0.019 to 0.870 and exceeds 0.5 in **271 of 1400** (19.4 %) -- including
+    Misk, Heart and HCircle at 20/20. That heuristic therefore INVERTED a fifth
+    of the dataset, and it is the leading explanation for the +3.35 point
+    reproduction gap on the full set against only -1.5 on Device, where just
+    2 of 200 images invert (handoff sec 9.1).
+
+    The fixed threshold is safe here and was checked, not assumed: every image
+    is dark background plus a bright object, with value sets {0,255} (1346),
+    {0,250} (48) and four other all-bright-or-black variants.
     """
     a = np.asarray(arr)
     if a.ndim == 3:
         a = a[..., 0]
-    thr = (int(a.max()) + int(a.min())) / 2.0
-    bright = a > thr
-    frac = bright.mean()
-    obj = bright if frac <= 0.5 else ~bright
-    return obj.astype(np.uint8)
+    return (a > 128).astype(np.uint8)
 
 
 def _rescale(bin_img: np.ndarray, long_side: int) -> np.ndarray:
@@ -74,6 +82,23 @@ def _rescale(bin_img: np.ndarray, long_side: int) -> np.ndarray:
     im = Image.fromarray((bin_img * 255).astype(np.uint8), mode="L")
     im = im.resize((nw, nh), resample=Image.NEAREST)
     return (np.asarray(im) > 127).astype(np.uint8)
+
+
+def _pad_square(bin_img: np.ndarray) -> np.ndarray:
+    """Centre the shape on a square canvas of side max(h, w).
+
+    Also part of the published preprocessing. The descriptor itself is
+    invariant to background padding (tests/test_descriptor.py), so this changes
+    nothing for family S -- but family R rotates inside whatever canvas it is
+    given, so the canvas decides how much of the object clipping destroys
+    (handoff sec 3.3.3). Reproducing family R requires reproducing this.
+    """
+    h, w = bin_img.shape
+    d = max(h, w)
+    out = np.zeros((d, d), dtype=np.uint8)
+    r0, c0 = int(d / 2 - h / 2), int(d / 2 - w / 2)
+    out[r0:r0 + h, c0:c0 + w] = bin_img
+    return out
 
 
 def load_mpeg7(
@@ -125,7 +150,7 @@ def load_mpeg7(
     for cls in sorted(keep):
         for stem, member in sorted(keep[cls], key=lambda t: idx(t[0])):
             arr = np.asarray(reader(member).convert("L"))
-            img = _rescale(_binarise(arr), long_side)
+            img = _pad_square(_rescale(_binarise(arr), long_side))
             if img.sum() == 0 or img.sum() == img.size:
                 raise ValueError(f"{stem}: degenerate after binarisation/rescale")
             shapes.append(Shape(shape_id=stem, cls=cls, img=img))
@@ -139,7 +164,8 @@ def protocol_metadata(long_side: int = LONG_SIDE) -> dict:
         "dataset": "MPEG-7 CE-Shape-1",
         "long_side": long_side,
         "resample": "nearest",
-        "binarise": "minority-intensity-class as object",
+        "binarise": "fixed threshold 128, bright is object (matches IWCIA 2025)",
+        "canvas": "centred on a square of side max(h,w)",
         "classifier": "1NN",
         "validation": "leave-one-out",
         "distance": "d_C (orbit: cyclic shift + reversal, mean-centred, min L2)",

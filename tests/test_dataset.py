@@ -55,3 +55,51 @@ def test_order_is_stable_across_loads():
     a = [s.shape_id for s in dataset.load_mpeg7(DATA, classes=("device3",))]
     b = [s.shape_id for s in dataset.load_mpeg7(DATA, classes=("device3",))]
     assert a == b
+
+
+# ---------------------------------------------------------------------------
+# Preprocessing must match what produced the published numbers (handoff 9.1).
+# ---------------------------------------------------------------------------
+
+def test_binarise_is_a_fixed_threshold_and_never_inverts():
+    """The bug this replaces: a minority-class heuristic inverted 271 of 1400
+    MPEG-7 images (19.4 %), including three classes at 20/20, because
+    silhouettes there occupy up to 87 % of the frame. A fixed threshold cannot
+    invert, whatever the object's area."""
+    import numpy as np
+
+    from qsig.dataset import _binarise
+
+    a = np.zeros((10, 10), dtype=np.uint8)
+    a[1:9, 1:9] = 255                      # 64 % bright -- the minority rule flips here
+    out = _binarise(a)
+    assert out.sum() == 64, "bright must stay the object even above half the frame"
+
+    b = np.full((10, 10), 255, dtype=np.uint8)
+    b[4:6, 4:6] = 0                        # 96 % bright
+    assert _binarise(b).sum() == 96
+
+    for v in (250, 248, 255):              # the value sets present in the dataset
+        c = np.zeros((6, 6), dtype=np.uint8)
+        c[2:4, 2:4] = v
+        assert _binarise(c).sum() == 4, f"value {v} must threshold as object"
+
+    d = np.zeros((6, 6), dtype=np.uint8)
+    d[2:4, 2:4] = 16                       # the one dim-valued image in the set
+    assert _binarise(d).sum() == 0, "16 is below the threshold, as in cv2"
+
+
+def test_pad_square_centres_and_preserves_every_object_pixel():
+    import numpy as np
+
+    from qsig.dataset import _pad_square
+
+    for h, w in ((47, 128), (128, 47), (33, 128), (128, 128), (128, 5)):
+        a = np.ones((h, w), dtype=np.uint8)
+        out = _pad_square(a)
+        assert out.shape == (max(h, w), max(h, w))
+        assert out.sum() == h * w, "padding must not drop object pixels"
+        rows = np.flatnonzero(out.any(axis=1))
+        cols = np.flatnonzero(out.any(axis=0))
+        assert abs((rows[0]) - (out.shape[0] - 1 - rows[-1])) <= 1
+        assert abs((cols[0]) - (out.shape[1] - 1 - cols[-1])) <= 1

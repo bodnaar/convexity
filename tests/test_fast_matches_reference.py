@@ -206,3 +206,75 @@ def test_elementwise_quotients_are_bit_identical():
     )
     assert np.array_equal(mine, theirs), "elementwise quotients differ -- not just summation order"
     assert Convexity(img, verbose=False).compute(1, 0, vec)["q1"] is not None
+
+
+# ---------------------------------------------------------------------------
+# The Theta(mn(p+q)) row-prefix-sum kernel -- handoff sec 3.1.2
+# ---------------------------------------------------------------------------
+
+def test_every_mask_row_is_contiguous():
+    """The precondition for the whole 'rows' kernel.
+
+    The mask is the interior of a convex lattice parallelogram, so each
+    horizontal slice should be one unbroken run. `mask_rows` raises if it is
+    not; this asserts it never has to, over a pool far wider than the paper
+    uses. If this ever fails for some direction, that direction must fall back
+    to method='points' rather than silently producing a wrong sum.
+    """
+    for d in D.pool(max_norm2=200):
+        rows = fast.mask_rows(d.vec)          # raises on a broken run
+        covered = sum(int(c1 - c0 + 1) for _, c0, c1 in rows)
+        assert covered == d.norm2 - 1, (
+            f"({d.p},{d.q}): rows cover {covered} points, mask has {d.norm2 - 1}"
+        )
+
+
+@pytest.mark.parametrize("d", POOL, ids=lambda d: f"{d.p}x{d.q}")
+def test_rows_kernel_is_bit_identical_to_points_kernel(d):
+    """Same numbers, cheaper. Any divergence here is a real bug: both are exact
+    integer arithmetic, so there is no rounding to hide behind."""
+    rng = np.random.default_rng(777 + d.norm2)
+    for shape in ((13, 13), (9, 17), (17, 9)):
+        img = random_image(rng, *shape)
+        a = fast.compute(img, 1, 0, d.vec, "points")
+        b = fast.compute(img, 1, 0, d.vec, "rows")
+        for k in range(4):
+            assert np.array_equal(a["_quads"][k], b["_quads"][k]), \
+                f"({d.p},{d.q}) {shape}: quadrant {k + 1} differs between kernels"
+        assert np.array_equal(a["_phi"], b["_phi"])
+        assert a["q1"] == b["q1"]
+
+
+@pytest.mark.parametrize("d", POOL, ids=lambda d: f"{d.p}x{d.q}")
+def test_rows_kernel_matches_the_published_reference(d):
+    """The rows kernel against convexity.Convexity itself, not just against the
+    other fast path -- so a shared mistake in qsig.fast cannot pass."""
+    rng = np.random.default_rng(31337 + d.norm2)
+    img = random_image(rng, 12, 12)
+    ref = Convexity(img, verbose=False).compute(1, 0, d.vec)
+    got = fast.compute(img, 1, 0, d.vec, "rows")
+    assert int(ref["q0"]) == got["q0"]
+    rel = abs(float(ref["q1"]) - got["q1"]) / abs(float(ref["q1"])) if ref["q1"] else 0.0
+    assert rel <= 8 * EPS, f"({d.p},{d.q}): reldiff {rel:.3e}"
+
+
+def test_row_kernel_operation_count_beats_the_point_kernel():
+    """The Theta(mn(p+q)) claim, as arithmetic rather than as timing.
+
+    2 * n_rows is also exactly the symmetric difference of the mask under a
+    one-pixel step, i.e. the sliding-window formulation reaches the same bound.
+    """
+    for d in D.pool(max_norm2=200):
+        oc = fast.operation_counts(d.vec)
+        assert oc["n_rows"] <= d.p + d.q + 1
+        if d.norm2 >= 10:                      # (1,0),(1,1),(2,1) are too small to gain
+            assert oc["rows_ops"] < oc["points_ops"], f"({d.p},{d.q}): {oc}"
+    big = fast.operation_counts((10, -3))
+    assert big["points_ops"] == 3 + 108
+    assert big["rows_ops"] == 3 + 24
+    assert big["reduction"] > 4.0
+
+
+def test_unknown_method_is_rejected():
+    with pytest.raises(ValueError):
+        fast.compute(np.eye(6, dtype=np.uint8), 1, 0, (1, 0), "magic")

@@ -34,18 +34,24 @@ from . import fast as _fast
 from .dataset import BACKGROUND, OBJECT
 from .directions import Direction
 
-IMPLEMENTATIONS = ("reference", "fast")
+IMPLEMENTATIONS = ("reference", "fast", "rows")
+
+# "rows" is qsig.fast with the Theta(mn(p+q)) prefix-sum kernel (handoff sec
+# 3.1.2) instead of the Theta(mn|r|^2) point kernel. Same numbers, different
+# cost model -- which is the whole point, so it gets its own impl tag rather
+# than hiding behind a keyword argument.
+_METHOD = {"fast": "points", "rows": "rows"}
 
 
 def warm_up(impl: str = "fast") -> None:
     """Trigger JIT compilation so it cannot land inside a timed run."""
-    if impl != "fast":
+    if impl not in _METHOD:
         return
     img = np.zeros((8, 8), dtype=np.uint8)
     img[2:6, 2:6] = OBJECT
     img[3, 3] = BACKGROUND
     for vec in ((1, 0), (3, -1)):
-        _fast.compute(img, OBJECT, BACKGROUND, vec)
+        _fast.compute(img, OBJECT, BACKGROUND, vec, _METHOD[impl])
 
 
 def q_concavity(img: np.ndarray, direction: Direction,
@@ -58,7 +64,7 @@ def q_concavity(img: np.ndarray, direction: Direction,
     if impl == "reference":
         value = Convexity(arr, verbose=False).compute(OBJECT, BACKGROUND, direction.vec)["q1"]
     else:
-        value = _fast.compute(arr, OBJECT, BACKGROUND, direction.vec)["q1"]
+        value = _fast.compute(arr, OBJECT, BACKGROUND, direction.vec, _METHOD[impl])["q1"]
     dt = time.perf_counter() - t0
     return float(value), dt
 
@@ -80,4 +86,5 @@ def implementation_tag(impl: str) -> str:
     """Short label to record with results, e.g. 'fast+numba'."""
     if impl == "reference":
         return "reference"
-    return "fast+numba" if _fast.HAVE_NUMBA else "fast-nonumba"
+    suffix = "+numba" if _fast.HAVE_NUMBA else "-nonumba"
+    return ("fast" if impl == "fast" else "rows") + suffix

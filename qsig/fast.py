@@ -146,6 +146,68 @@ def mask_offsets(v: tuple[int, int]) -> np.ndarray:
     return np.stack([drow, dcol], axis=1).astype(np.int64)
 
 
+def mask_rows(v: tuple[int, int]) -> np.ndarray:
+    """The same mask, as contiguous row runs: (drow, dcol_first, dcol_last).
+
+    The mask is the interior of a convex lattice parallelogram, so its
+    intersection with any horizontal line is a single run -- verified for every
+    direction in the pool by
+    tests/test_fast_matches_reference.py::test_every_mask_row_is_contiguous.
+
+    That is what lets the sum be evaluated with a horizontal prefix sum: 2
+    lookups per row instead of one per interior point. The number of rows is at
+    most p+q+1, so the per-pixel cost drops from |r|^2-1 to ~2(p+q) --
+    Theta(mn(p+q)) instead of Theta(mn(p^2+q^2)). See handoff sec 3.1.2.
+
+    2 * (number of rows) equals exactly the symmetric difference of the mask
+    under a one-pixel step, i.e. the cost of the equivalent sliding-window
+    formulation. The two routes reach the same bound; this one is easier to keep
+    exact and needs no compiled inner loop.
+    """
+    offs = mask_offsets(v)
+    rows: dict[int, list[int]] = {}
+    for dr, dc in offs:
+        rows.setdefault(int(dr), []).append(int(dc))
+    out = []
+    for dr in sorted(rows):
+        cs = sorted(rows[dr])
+        if cs != list(range(cs[0], cs[-1] + 1)):
+            raise AssertionError(
+                f"mask row {dr} of direction {v} is not contiguous: {cs}. "
+                "The row-prefix-sum kernel is invalid for this direction; use "
+                "method='points'."
+            )
+        out.append((dr, cs[0], cs[-1]))
+    return np.array(out, dtype=np.int64).reshape(-1, 3)
+
+
+def _accumulate_mask_rows(a: np.ndarray, rows: np.ndarray) -> np.ndarray:
+    """g[r,c] = a[r,c] + sum over the mask, via horizontal prefix sums.
+
+    One whole-array operation per mask ROW rather than per mask POINT. Exact:
+    integer prefix sums, and a difference of two of them is the exact run sum.
+    Out-of-image columns are handled by clipping the interval, which yields an
+    empty run and therefore a zero contribution -- matching `_accumulate_mask`,
+    which simply skips out-of-bounds points.
+    """
+    h, w = a.shape
+    g = a.astype(INT, copy=True)
+    if rows.size == 0:
+        return g
+    pre = np.zeros((h, w + 1), dtype=INT)
+    pre[:, 1:] = np.cumsum(a.astype(INT), axis=1)
+    cols = np.arange(w)
+    for drow, c0, c1 in rows:
+        r0, r1 = max(0, -int(drow)), min(h, h - int(drow))
+        if r0 >= r1:
+            continue
+        lo = np.clip(cols + int(c0), 0, w)
+        hi = np.clip(cols + int(c1) + 1, 0, w)
+        src = pre[r0 + int(drow):r1 + int(drow)]
+        g[r0:r1] += src[:, hi] - src[:, lo]
+    return g
+
+
 def _accumulate_mask(a: np.ndarray, offs: np.ndarray) -> np.ndarray:
     """g[r,c] = a[r,c] + sum_k a[r+drow_k, c+dcol_k], zero outside the image.
 
@@ -182,11 +244,24 @@ def _dp(g, c1x, c1y, c2x, c2y, c3x, c3y):  # pragma: no cover - jitted
     return asum
 
 
-def rotsat(a: np.ndarray, v: tuple[int, int]) -> np.ndarray:
-    """Rotated summed-area table. int64, exact, same values as the reference."""
+METHODS = ("points", "rows")
+
+
+def rotsat(a: np.ndarray, v: tuple[int, int], method: str = "points") -> np.ndarray:
+    """Rotated summed-area table. int64, exact, same values as the reference.
+
+    `method` selects how the mask correction term is evaluated:
+      "points"  one whole-array add per interior lattice point -- Theta(mn|r|^2)
+      "rows"    one per contiguous mask row via prefix sums -- Theta(mn(p+q))
+    Both are exact and must agree bit-for-bit; the tests assert it.
+    """
+    if method not in METHODS:
+        raise ValueError(f"method must be one of {METHODS}, got {method!r}")
     v0, v1 = int(v[0]), int(v[1])
     corners = np.array([[0, 0], [-v0, -v1], [-v0 - v1, -v1 + v0], [-v1, v0]])
-    g = _accumulate_mask(np.asarray(a).astype(INT), mask_offsets(v))
+    arr = np.asarray(a).astype(INT)
+    g = (_accumulate_mask_rows(arr, mask_rows(v)) if method == "rows"
+         else _accumulate_mask(arr, mask_offsets(v)))
     return _dp(g,
                int(corners[1][0]), int(corners[1][1]),
                int(corners[2][0]), int(corners[2][1]),
@@ -207,8 +282,12 @@ def _scanline_sums(a: np.ndarray, v: tuple[int, int]):
     return counts.astype(INT), b, lo
 
 
-def compute(img: np.ndarray, obj_a=1, obj_b=0, vec=(1, 0)) -> dict:
-    """E_F^{r,r_perp} for one binary image. Signature mirrors Convexity.compute."""
+def compute(img: np.ndarray, obj_a=1, obj_b=0, vec=(1, 0), method: str = "points") -> dict:
+    """E_F^{r,r_perp} for one binary image. Signature mirrors Convexity.compute.
+
+    `method` is passed to `rotsat`; see METHODS. "rows" is the Theta(mn(p+q))
+    kernel of handoff sec 3.1.2 and should be preferred once measured.
+    """
     f = np.asarray(img)
     assert_protocol_safe(max(f.shape))
     a = (f == obj_a)
@@ -224,10 +303,10 @@ def compute(img: np.ndarray, obj_a=1, obj_b=0, vec=(1, 0)) -> dict:
     pad = max(abs(vec[0]), abs(vec[1]))
     ap = np.pad(a, pad, "constant")
     sl = slice(pad, -pad) if pad else slice(None)
-    q1 = rotsat(ap, vec)[sl, sl]
-    q2 = np.rot90(rotsat(np.rot90(ap, 1), vec), -1)[sl, sl]
-    q3 = np.rot90(rotsat(np.rot90(ap, -1), vec), 1)[sl, sl]
-    q4 = np.rot90(rotsat(np.rot90(ap, 2), vec), -2)[sl, sl]
+    q1 = rotsat(ap, vec, method)[sl, sl]
+    q2 = np.rot90(rotsat(np.rot90(ap, 1), vec, method), -1)[sl, sl]
+    q3 = np.rot90(rotsat(np.rot90(ap, -1), vec, method), 1)[sl, sl]
+    q4 = np.rot90(rotsat(np.rot90(ap, 2), vec, method), -2)[sl, sl]
 
     phi = q1 * q2 * q3 * q4 * b.astype(INT)
     card_f = INT(a.sum())
@@ -271,6 +350,24 @@ def exact_q1(img: np.ndarray, obj_a=1, obj_b=0, vec=(1, 0)) -> Fraction:
         total += Fraction(256 * int(phi[i, j]), int(denom[i, j]))
     n = r["_card_f_dash"]
     return Fraction(0) if n == 0 else total / n
+
+
+def operation_counts(v: tuple[int, int]) -> dict:
+    """Per-pixel operation counts for the two kernels -- the paper's cost model.
+
+    These are exact integers, not timings, and they are what Theta asserts.
+    """
+    n_points = len(mask_offsets(v))
+    n_rows = len(mask_rows(v))
+    p, q = abs(int(v[0])), abs(int(v[1]))
+    return {
+        "norm2": p * p + q * q,
+        "points_ops": 3 + n_points,          # 3 table lookups + one add per point
+        "rows_ops": 3 + 2 * n_rows,          # 3 lookups + two per contiguous run
+        "n_rows": n_rows,
+        "p_plus_q": p + q,
+        "reduction": (3 + n_points) / (3 + 2 * n_rows),
+    }
 
 
 def compare_to_reference(img: np.ndarray, vec, obj_a=1, obj_b=0, exact=False) -> dict:

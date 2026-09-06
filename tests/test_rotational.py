@@ -87,3 +87,62 @@ def test_a_rotation_that_empties_the_image_raises():
     img[0, 0] = OBJECT                     # single corner pixel: rotates away
     with pytest.raises(ValueError):
         rotational.rotational_value(img, D.Direction(1, 1), "rows", expand=False)
+
+
+# ---------------------------------------------------------------------------
+# The resampling noise floor -- scripts/diagnose_rotational.py step E.
+#
+# These guard the paper's stated MECHANISM for why R loses to S. If any of them
+# starts failing, the explanation in the paper is wrong, not merely the numbers.
+# ---------------------------------------------------------------------------
+
+def _square(n=128, s=90):
+    a = np.zeros((n, n), dtype=np.uint8)
+    o = (n - s) // 2
+    a[o:o + s, o:o + s] = OBJECT
+    return a
+
+
+def _disc(n=128, r=45):
+    y, x = np.ogrid[:n, :n]
+    return np.where((y - n / 2 + .5) ** 2 + (x - n / 2 + .5) ** 2 <= r * r,
+                    OBJECT, BACKGROUND).astype(np.uint8)
+
+
+def test_S_is_exactly_zero_on_Q_convex_shapes():
+    """The reference point for the floor: no direction, no shape, no leakage."""
+    from qsig.descriptor import q_concavity
+
+    for img in (_square(), _disc()):
+        for d in D.pool(max_norm2=26):
+            v, _ = q_concavity(img, d, "rows")
+            assert v == 0.0, f"S leaked {v} at ({d.p},{d.q})"
+
+
+def test_R_manufactures_concavity_on_a_disc_but_not_on_a_square():
+    """Rotating a square leaves a MONOTONE staircase edge, which is still
+    Q-convex, so R stays exactly 0. A disc's boundary is not monotone under
+    re-binarisation and R reports concavity that is not there -- measured
+    2026-09-06 at 2.4e-5 to 9.4e-5, which is the same order as the +1.9e-4 bias
+    seen on the smallest decile of real Device values.
+    """
+    pool = D.pool(max_norm2=26)
+    sq = [rotational.rotational_value(_square(), d, "rows")[0] for d in pool]
+    dc = [rotational.rotational_value(_disc(), d, "rows")[0] for d in pool]
+    assert max(sq) == 0.0, "a rotated square should stay Q-convex"
+    assert max(dc) > 0.0, "if this is now zero the floor has gone -- re-check the paper"
+    assert max(dc) < 1e-3, f"floor grew to {max(dc):.2e}; the mechanism section quotes 1e-4"
+
+
+def test_the_floor_is_an_ADDITIVE_bias_not_symmetric_noise():
+    """R >= S on a Q-convex shape by construction: there is nothing to smooth
+    away, only spurious concavity to add. The two-sided behaviour reported in
+    step B (R above S at the small end, below it at the large end) needs this
+    one-sided half to be real."""
+    from qsig.descriptor import q_concavity
+
+    img = _disc()
+    for d in D.pool(max_norm2=26):
+        s, _ = q_concavity(img, d, "rows")
+        r, _ = rotational.rotational_value(img, d, "rows")
+        assert r >= s - 1e-15, f"({d.p},{d.q}): R={r} below S={s} on a Q-convex shape"

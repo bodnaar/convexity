@@ -66,6 +66,40 @@ def cpu_governor() -> str:
         return "unknown"
 
 
+def library_versions() -> dict:
+    """Record the versions of every library that can change a RESULT.
+
+    Not bookkeeping. Measured 2026-09-06: family S is bit-identical across two
+    machines (0 mismatches in 48 values), while family R differs in 39 of 48,
+    by up to 3.3e-3 on values of order 0.1 -- because `cv2.warpAffine`
+    resampling is not stable across OpenCV builds. A family-R table is therefore
+    only comparable to another family-R table produced with the same cv2, and
+    without this field that is unknowable after the fact (handoff sec 3.3.4).
+    """
+    out = {"numpy": "", "opencv": "", "pillow": "", "numba": ""}
+    try:
+        import numpy
+        out["numpy"] = numpy.__version__
+    except Exception:
+        pass
+    try:
+        import cv2
+        out["opencv"] = cv2.__version__
+    except Exception:
+        pass
+    try:
+        import PIL
+        out["pillow"] = PIL.__version__
+    except Exception:
+        pass
+    try:
+        import numba
+        out["numba"] = numba.__version__
+    except Exception:
+        pass
+    return out
+
+
 class ResultStore:
     def __init__(self, path: str, repo_dir: str = ".", pinned: bool = False,
                  impl: str = "reference", family: str = "S"):
@@ -127,7 +161,7 @@ class ResultStore:
             impl=self.impl, family=self.family,
             host=self.host, governor=self.governor, pinned=self.pinned,
             git_commit=self.commit, python=platform.python_version(),
-            platform=platform.platform(),
+            platform=platform.platform(), libraries=library_versions(),
         )
         with open(os.path.splitext(self.path)[0] + ".meta.json", "w") as fh:
             json.dump(meta, fh, indent=2, sort_keys=True)

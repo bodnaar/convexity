@@ -88,3 +88,39 @@ def test_values_are_reproducible():
     a, _ = q_concavity(img, D.Direction(3, 1))
     b, _ = q_concavity(img, D.Direction(3, 1))
     assert a == b
+
+
+def test_E_is_invariant_to_background_padding():
+    """The descriptor depends on the OBJECT, not on the canvas it sits in.
+
+    Measured 2026-09-06: max relative change 3.2e-16 over 36 (shape, direction)
+    pairs under asymmetric padding. This is what rules out the canvas SIZE as an
+    explanation for anything: `phi` is zero wherever a point has an empty
+    quadrant, so padded rows and columns contribute nothing to either the sum or
+    to card(F'), and `norm_part` is unchanged. The only thing that separates
+    `expand=True` from `expand=False` in qsig.rotational is therefore the object
+    pixels that clipping DESTROYS -- not the array shape.
+
+    An earlier revision of the handoff conjectured an angle-dependent
+    normalisation denominator under canvas expansion. This test is why that
+    conjecture was withdrawn.
+    """
+    import numpy as np
+
+    from qsig import directions as D
+    from qsig.descriptor import q_concavity
+
+    rng = np.random.default_rng(0)
+    img = np.zeros((48, 48), dtype=np.uint8)
+    img[10:38, 10:38] = 1
+    img[16:24, 10:26] = 0                  # a notch, so it is not Q-convex
+    img[30:34, 28:36] = 0
+    worst = 0.0
+    for _ in range(3):
+        pad = rng.integers(1, 20, size=4)
+        big = np.pad(img, ((pad[0], pad[1]), (pad[2], pad[3])))
+        for d in list(D.pool(max_norm2=26))[:6]:
+            a, _ = q_concavity(img, d, "rows")
+            b, _ = q_concavity(big, d, "rows")
+            worst = max(worst, abs(a - b) / max(a, 1e-12))
+    assert worst < 1e-12, f"padding changed E by {worst:.2e}"

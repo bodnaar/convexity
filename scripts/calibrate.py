@@ -88,6 +88,29 @@ def fit(x, y):
     return a, b, r2, float(np.abs((pred - y) / y).mean() * 100)
 
 
+def fit_area_normalised(area, n2, secs):
+    """Fit t = A * (c0 + c1 * n2) over every individual (shape, direction) run.
+
+    With --subset all the image areas span 2048..16384 px, an 8x range, and both
+    the direction-independent and the direction-dependent work scale with area.
+    Fitting raw seconds therefore charges the shape-size variation to the
+    residuals and makes an excellent model look mediocre. Normalising by the
+    PADDED area -- the array the algorithm actually walks, (h+2p)(w+2p) with
+    p = max(|r1|,|r2|) -- removes that, and folds in the fact that a long
+    direction pads the image more, which is a genuine part of its cost.
+
+    Returns c0, c1 in seconds per pixel, plus R^2 over the individual runs.
+    """
+    A = np.asarray(area, float)
+    n2 = np.asarray(n2, float)
+    y = np.asarray(secs, float)
+    X = np.vstack([A, A * n2]).T
+    (c0, c1), *_ = np.linalg.lstsq(X, y, rcond=None)
+    pred = X @ np.array([c0, c1])
+    r2 = 1 - ((y - pred) ** 2).sum() / max(((y - y.mean()) ** 2).sum(), 1e-30)
+    return float(c0), float(c1), float(r2)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data", required=True)
@@ -131,11 +154,17 @@ def main():
           f"{'IWCIA T1':>9s} {'ratio':>7s}")
     print("-" * 68)
     med = []
+    obs_area, obs_n2, obs_sec = [], [], []
     for d in dirs:
+        pad = max(d.p, d.q)
         secs, rows = [], []
         for sh in shapes:
             value, dt = q_concavity(sh.img, d)
             secs.append(dt)
+            h, w = sh.img.shape
+            obs_area.append((h + 2 * pad) * (w + 2 * pad))
+            obs_n2.append(d.norm2)
+            obs_sec.append(dt)
             rows.append({"shape_id": sh.shape_id, "cls": sh.cls, "p": d.p, "q": d.q,
                          "angle_deg": round(d.angle, 6), "norm2": d.norm2,
                          "resolution": args.long_side, "E": value, "seconds": dt})
@@ -163,6 +192,18 @@ def main():
     print(f"  published (IWCIA Table 1)    T = {directions.COST_IWCIA[0]:7.4f} + "
           f"{directions.COST_IWCIA[1]:.5f}*|r|^2")
 
+    # Per-shape fit: removes image-area variation, which is large under --subset all.
+    c0, c1, r_area = fit_area_normalised(obs_area, obs_n2, obs_sec)
+    ref = (args.long_side + 2) ** 2
+    print(f"\narea-normalised fit over all {len(obs_sec)} individual runs "
+          f"(padded area, so shape size is not charged to the residuals):")
+    print(f"  t = A * ({c0 * 1e6:.3f} + {c1 * 1e6:.5f} * |r|^2) microseconds per padded pixel"
+          f"   R2={r_area:.5f}")
+    print(f"  at a {args.long_side}x{args.long_side} shape that is "
+          f"T = {c0 * ref:.4f} + {c1 * ref:.5f}*|r|^2 s")
+    print(f"  direction-dependent share at |r|^2=109: "
+          f"{c1 * 109 / (c0 + c1 * 109) * 100:.1f}% of the work")
+
     cheap, dear = med[0], med[-1]
     spread = dear / cheap
     pub_spread = 65.21 / 2.54
@@ -185,6 +226,15 @@ def main():
         print("         since Ubuntu 16.04. Report this machine's own measurements, state")
         print("         the software stack printed above, and do NOT quote their seconds")
         print("         alongside your accuracies (handoff sec 3.1.1).")
+    elif r1 > 0.98 and r2_ >= r1:
+        print("VERDICT: the |r|^2 law fits well (R2 = "
+              f"{r1:.4f}) but does NOT separate from the")
+        print(f"         (r1+r2)^2 bound (R2 = {r2_:.4f}) at this image size. That is")
+        print("         expected on SMALL images: padding by max(p,q) inflates the array")
+        print("         more for long directions, adding a spurious (p+q)-shaped term that")
+        print("         both models can absorb. Use the area-normalised fit above, which")
+        print("         divides it out, and re-run at the full 128 px protocol -- the two")
+        print("         models separate cleanly there (0.998 vs 0.903 on IWCIA Table 1).")
     elif r1 > 0.9:
         print("VERDICT: the law roughly holds but the fit is loose (R2 = "
               f"{r1:.3f}). Most likely another process is on the machine -- check the")

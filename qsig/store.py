@@ -22,8 +22,13 @@ import subprocess
 FIELDS = [
     "shape_id", "cls", "p", "q", "angle_deg", "norm2",
     "resolution", "E", "seconds",
-    "impl", "host", "governor", "pinned", "git_commit",
+    "family", "impl", "host", "governor", "pinned", "git_commit",
 ]
+
+# `family` is "S" (rotation-free: evaluate the slanted direction pair) or "R"
+# (rotational: rotate the image, evaluate at (1,0)). They are DIFFERENT
+# DESCRIPTORS, not two ways of computing one -- IWCIA 2025 Defs 3 and 4 -- so
+# they must never be mixed inside one signature.
 
 # `impl` is not bookkeeping: the cost CONSTANTS depend on the implementation
 # (handoff sec 3.1.1), so a table mixing "reference" and "fast" rows would fit a
@@ -63,11 +68,12 @@ def cpu_governor() -> str:
 
 class ResultStore:
     def __init__(self, path: str, repo_dir: str = ".", pinned: bool = False,
-                 impl: str = "reference"):
+                 impl: str = "reference", family: str = "S"):
         self.path = path
         self.repo_dir = repo_dir
         self.pinned = pinned
         self.impl = impl
+        self.family = family
         self.host = platform.node()
         self.governor = cpu_governor()
         self.commit = _git_commit(repo_dir)
@@ -80,14 +86,15 @@ class ResultStore:
     # -- resume support ----------------------------------------------------
 
     def done_keys(self) -> set:
-        """(shape_id, p, q, resolution) already present in the table."""
+        """(shape_id, p, q, resolution, family) already present in the table."""
         keys = set()
         if not os.path.exists(self.path):
             return keys
         with open(self.path, newline="") as fh:
             for row in csv.DictReader(fh):
                 try:
-                    keys.add((row["shape_id"], int(row["p"]), int(row["q"]), int(row["resolution"])))
+                    keys.add((row["shape_id"], int(row["p"]), int(row["q"]),
+                              int(row["resolution"]), row.get("family", "S") or "S"))
                 except (KeyError, ValueError):
                     continue        # tolerate a torn final line from a crash
         return keys
@@ -102,6 +109,7 @@ class ResultStore:
             w = csv.DictWriter(fh, fieldnames=FIELDS, extrasaction="ignore")
             for r in rows:
                 r = dict(r)
+                r.setdefault("family", self.family)
                 r.setdefault("impl", self.impl)
                 r.setdefault("host", self.host)
                 r.setdefault("governor", self.governor)
@@ -116,7 +124,7 @@ class ResultStore:
     def write_meta(self, meta: dict) -> None:
         meta = dict(meta)
         meta.update(
-            impl=self.impl,
+            impl=self.impl, family=self.family,
             host=self.host, governor=self.governor, pinned=self.pinned,
             git_commit=self.commit, python=platform.python_version(),
             platform=platform.platform(),
@@ -126,14 +134,21 @@ class ResultStore:
 
 
 def load_table(path: str):
-    """Read the table back as a dict keyed by (shape_id, p, q, resolution)."""
+    """Read the table back, keyed by (shape_id, p, q, resolution, family).
+
+    Tables written before the `family` column are read as family "S", which is
+    what they were.
+    """
     out = {}
     with open(path, newline="") as fh:
         for row in csv.DictReader(fh):
             try:
-                key = (row["shape_id"], int(row["p"]), int(row["q"]), int(row["resolution"]))
+                fam = row.get("family", "S") or "S"
+                key = (row["shape_id"], int(row["p"]), int(row["q"]),
+                       int(row["resolution"]), fam)
                 out[key] = {"cls": row["cls"], "E": float(row["E"]),
-                            "seconds": float(row["seconds"]), "impl": row.get("impl", "")}
+                            "seconds": float(row["seconds"]), "impl": row.get("impl", ""),
+                            "family": fam}
             except (KeyError, ValueError):
                 continue
     return out

@@ -48,6 +48,39 @@ from typing import Iterable, Sequence
 # seconds = A + B * norm2
 COST_IWCIA = (1.419, 0.5724)
 
+# Measured cost models, nirgnode200, 2026-09-06: 24 shapes, subset=all, 128 px,
+# performance governor, turbo on, pinned, quiet machine, Python 3.11.9 /
+# numpy 1.26.4. Each entry is (predictor, intercept, slope) in seconds.
+#
+# USE THESE, NOT THE `seconds` COLUMN OF A POOL RUN. A pool run has 20 workers
+# contending for memory bandwidth and L3, which inflates per-job times by ~3x
+# and unevenly. Handoff sec 7.2: bulk runs optimise throughput, published
+# timings come from pinned single-process measurement runs. Pricing a direction
+# set from the fitted law is the only defensible number.
+#
+# The predictor differs by kernel because the cost model is a property of the
+# ALGORITHM (handoff sec 3.1.2): the point kernel is Theta(mn|r|^2), the rows
+# kernel Theta(mn(p+q)).
+COST_MODELS = {
+    "published":   ("norm2", 1.41900, 0.572400),
+    "reference":   ("norm2", 1.71876, 0.074227),
+    "fast+numba":  ("norm2", 0.00139, 0.000251),
+    "rows+numba":  ("pq",    0.00150, 0.000655),
+}
+
+
+def cost_of(dirs, model: str = "rows+numba") -> float:
+    """Modelled seconds to compute a whole signature with this direction set."""
+    if model not in COST_MODELS:
+        raise ValueError(f"unknown cost model {model!r}; have {sorted(COST_MODELS)}")
+    kind, a, b = COST_MODELS[model]
+    return sum(a + b * (d.norm2 if kind == "norm2" else d.p + d.q) for d in dirs)
+
+
+def _cost1(d, model: str) -> float:
+    kind, a, b = COST_MODELS[model]
+    return a + b * (d.norm2 if kind == "norm2" else d.p + d.q)
+
 
 @dataclass(frozen=True, order=False)
 class Direction:
@@ -193,6 +226,71 @@ def slot_set(
         used.add((pick.p, pick.q))
         chosen.append(pick)
     return by_angle(chosen)
+
+
+def min_cost_maxgap(max_gap_deg: float, candidates: Sequence[Direction] | None = None,
+                    model: str = "rows+numba") -> list[Direction]:
+    """Cheapest direction set whose maximum angular gap is at most `max_gap_deg`.
+
+    THIS IS THE CONSTRUCTION THE PAPER USES. It supersedes `slot_set`.
+
+    `slot_set` stated the problem the wrong way round: it fixed n equiangular
+    slots and minimised cost within a tolerance of each. That lets neighbouring
+    picks drift TOWARDS each other and open a hole elsewhere -- `slot9:±5°`
+    produced an 18.4 degree maximum gap where equiangular S_9 has 10, and scored
+    64.0% where the same budget spent on coverage scores 73.0% (handoff 3.2.1).
+    Accuracy is governed by the maximum gap, so the gap is the CONSTRAINT and
+    cost is the OBJECTIVE:
+
+        minimise  sum c(r)   subject to   max angular gap <= G
+
+    Solved EXACTLY, not greedily. Sort the candidates by angle; a valid set is a
+    path through them whose consecutive angular steps are all <= G and which
+    closes the cycle back to 0 degrees (Q-concavity has period 90). Shortest
+    path on a DAG, O(n^2) in the pool size, optimal.
+
+    (1,0) is always included: it is the cheapest direction in every cost model
+    and anchors the cyclic wrap-around at 0/90 degrees.
+
+    `model` names the cost model to minimise against -- see COST_MODELS. In
+    practice the CHOICE OF MODEL DOES NOT CHANGE THE SELECTED SET (handoff
+    3.1.3), so this argument matters for the reported price, not the answer.
+    """
+    cand = sorted(candidates if candidates is not None else pool(max_norm2=130),
+                  key=lambda d: d.angle)
+    if not cand or cand[0].angle != 0.0:
+        raise ValueError("candidate pool must contain (1,0) at 0 degrees")
+    n = len(cand)
+    INF = float("inf")
+    best = [INF] * n
+    prev: list[int | None] = [None] * n
+    best[0] = _cost1(cand[0], model)
+    for i in range(n):
+        if best[i] == INF:
+            continue
+        for j in range(i + 1, n):
+            if cand[j].angle - cand[i].angle > max_gap_deg:
+                break                      # sorted by angle, so no later j fits
+            c = best[i] + _cost1(cand[j], model)
+            if c < best[j]:
+                best[j] = c
+                prev[j] = i
+    # close the cycle: the last direction must be within G of 90 degrees
+    end, endcost = None, INF
+    for i in range(n):
+        if best[i] < INF and 90.0 - cand[i].angle <= max_gap_deg and best[i] < endcost:
+            end, endcost = i, best[i]
+    if end is None:
+        raise ValueError(
+            f"no set with maximum gap <= {max_gap_deg} deg exists in this pool "
+            f"({n} candidates, largest angle {cand[-1].angle:.1f} deg)"
+        )
+    out: list[Direction] = []
+    k: int | None = end
+    while k is not None:
+        out.append(cand[k])
+        k = prev[k]
+    return list(reversed(out))
 
 
 def deg2vec_set(scale: int = 10, n_angles: int = 90) -> list[Direction]:

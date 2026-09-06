@@ -129,3 +129,134 @@ def test_max_angular_gap_is_cyclic_on_0_90():
     assert D.max_angular_gap([D.Direction(1, 0)]) == 90.0
     two = [D.Direction(1, 0), D.Direction(1, 1)]
     assert D.max_angular_gap(two) == pytest.approx(45.0)
+
+
+# ---------------------------------------------------------------------------
+# min_cost_maxgap -- the construction the paper uses (handoff sec 3.2.1)
+# ---------------------------------------------------------------------------
+
+def test_maxgap_respects_the_constraint():
+    for G in (6.0, 8.0, 10.0, 15.0, 20.0):
+        S = D.min_cost_maxgap(G)
+        assert D.max_angular_gap(S) <= G + 1e-9, f"G={G}: got {D.max_angular_gap(S)}"
+
+
+def test_maxgap_is_optimal_not_greedy():
+    """Brute-force the optimum on a small pool and require the DP to match it.
+
+    A greedy sweep is not optimal here -- taking the cheapest admissible next
+    direction can force an expensive one later -- so this is a real check.
+    """
+    import itertools
+
+    cand = D.pool(max_norm2=26)
+    G = 20.0
+    best = None
+    for k in range(2, 7):
+        for combo in itertools.combinations(cand, k):
+            if D.Direction(1, 0) not in combo:
+                continue
+            if D.max_angular_gap(combo) <= G + 1e-9:
+                c = D.cost_of(combo)
+                if best is None or c < best:
+                    best = c
+    got = D.cost_of(D.min_cost_maxgap(G, cand))
+    assert got == pytest.approx(best, rel=1e-12), f"DP {got} vs brute force {best}"
+
+
+def test_maxgap_beats_slot_set_at_equal_coverage():
+    """The reason slot_set was superseded: at the same coverage it costs more.
+
+    slot9:+-5 deg yields an 18.4 deg gap for 0.0358 s; the DP reaches the same
+    coverage for less, with fewer directions (handoff sec 3.2.1).
+    """
+    slot = D.slot_set(9, 5.0)
+    g = D.max_angular_gap(slot)
+    dp = D.min_cost_maxgap(g)
+    assert D.max_angular_gap(dp) <= g + 1e-9
+    assert D.cost_of(dp) < D.cost_of(slot)
+    assert len(dp) <= len(slot)
+
+
+def test_maxgap_always_includes_the_axis_direction():
+    for G in (8.0, 12.0, 20.0):
+        assert D.Direction(1, 0) in D.min_cost_maxgap(G)
+
+
+def test_maxgap_cost_and_size_are_monotone_in_G():
+    prev_cost, prev_k = 0.0, 0
+    for G in (25.0, 20.0, 15.0, 12.0, 10.0, 8.0, 6.0):
+        S = D.min_cost_maxgap(G)
+        assert D.cost_of(S) >= prev_cost - 1e-12, f"cost not monotone at G={G}"
+        assert len(S) >= prev_k, f"size not monotone at G={G}"
+        prev_cost, prev_k = D.cost_of(S), len(S)
+
+
+def test_maxgap_raises_when_the_pool_cannot_cover():
+    with pytest.raises(ValueError):
+        D.min_cost_maxgap(1.0, D.pool(max_norm2=10))
+
+
+def test_cost_models_are_all_usable():
+    for model in D.COST_MODELS:
+        S = D.min_cost_maxgap(10.0, model=model)
+        assert D.cost_of(S, model) > 0
+        assert D.max_angular_gap(S) <= 10.0 + 1e-9
+
+
+def test_the_slot_construction_was_model_invariant_but_the_DP_IS_NOT():
+    """Corrects an over-claim. Handoff rev 9 sec 3.1.3 reported that the choice
+    of cost model never changes the selected set. That was measured on
+    `slot_set`, where it is true -- each slot picks its own cheapest
+    representative and, within a narrow angular window, every norm orders the
+    candidates identically.
+
+    `min_cost_maxgap` optimises GLOBALLY: it trades a cheap direction now
+    against a larger step later, and that trade depends on relative prices. So
+    its optimum genuinely depends on the cost model. The invariance was a
+    property of the weaker construction, not of the problem.
+    """
+    slot_a = [(d.p, d.q) for d in D.slot_set(12, 3.75)]
+    assert slot_a == [(d.p, d.q) for d in D.slot_set(12, 3.75)]      # deterministic
+
+    differs = False
+    for G in (6.0, 10.0, 12.0):
+        a = [(d.p, d.q) for d in D.min_cost_maxgap(G, model="fast+numba")]
+        b = [(d.p, d.q) for d in D.min_cost_maxgap(G, model="rows+numba")]
+        differs = differs or a != b
+    assert differs, "if this now passes, re-examine the claim in handoff sec 3.1.3"
+
+
+def test_selecting_with_the_wrong_cost_model_stays_FEASIBLE():
+    """The robustness that survives: the CONSTRAINT is model-independent.
+
+    Optimising against the wrong cost model costs more, but never violates the
+    coverage requirement -- so a set chosen for one implementation is always
+    usable on another, just not optimal there. That is what lets the paper state
+    one construction and report its price per implementation.
+    """
+    for G in (6.0, 8.0, 10.0, 12.0, 15.0, 20.0):
+        for model in ("fast+numba", "rows+numba"):
+            other = "rows+numba" if model == "fast+numba" else "fast+numba"
+            wrong = D.min_cost_maxgap(G, model=other)
+            assert D.max_angular_gap(wrong) <= G + 1e-9
+
+
+def test_the_wrong_model_penalty_is_bounded():
+    """Measured 2026-09-06: 0% at G in {8,15,20}, 5.9-24.4% at G in {6,10,12}.
+    A regression guard, and the number the paper should quote when it says the
+    selection is robust-but-not-invariant to the cost model."""
+    worst = 0.0
+    for G in (6.0, 8.0, 10.0, 12.0, 15.0, 20.0):
+        for model in ("fast+numba", "rows+numba"):
+            other = "rows+numba" if model == "fast+numba" else "fast+numba"
+            own = D.cost_of(D.min_cost_maxgap(G, model=model), model)
+            oth = D.cost_of(D.min_cost_maxgap(G, model=other), model)
+            worst = max(worst, (oth - own) / own)
+    assert worst <= 0.30, f"wrong-model penalty grew to {worst:.1%}"
+    assert worst > 0.0, "if this is now zero the sets have become invariant again"
+
+
+def test_cost_of_rejects_an_unknown_model():
+    with pytest.raises(ValueError):
+        D.cost_of(D.S_INT, "nonexistent")

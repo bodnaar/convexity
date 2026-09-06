@@ -35,22 +35,33 @@ import qsig.threadguard  # noqa: E402,F401  -- MUST precede numpy
 import multiprocessing as mp  # noqa: E402
 import time  # noqa: E402
 
-from qsig import dataset, directions, store  # noqa: E402
+from qsig import dataset, descriptor, directions, store  # noqa: E402
 from qsig.descriptor import q_concavity  # noqa: E402
 
 _SHAPES = {}
+_IMPL = "reference"
 
 
-def _init(shapes):
+def _init(shapes, impl):
+    """Runs once per worker process.
+
+    Warming the JIT here is not an optimisation, it is a correctness
+    requirement for the timings: numba compiles `_dp` on first call at a cost of
+    roughly a second, and without this that compile lands inside whichever job
+    the worker happens to pick up first and inflates it by ~1000x.
+    """
+    global _IMPL
+    _IMPL = impl
     for sh in shapes:
         _SHAPES[sh.shape_id] = sh
+    descriptor.warm_up(impl)
 
 
 def _job(args):
     shape_id, p, q, resolution = args
     sh = _SHAPES[shape_id]
     d = directions.Direction(p, q)
-    value, secs = q_concavity(sh.img, d)
+    value, secs = q_concavity(sh.img, d, _IMPL)
     return {
         "shape_id": shape_id, "cls": sh.cls, "p": p, "q": q,
         "angle_deg": round(d.angle, 6), "norm2": d.norm2,
@@ -93,6 +104,10 @@ def main():
                     help="box budget F_Q instead of a disc; reproduces deg2vec's pool")
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1))
     ap.add_argument("--out", required=True)
+    ap.add_argument("--impl", choices=descriptor.IMPLEMENTATIONS, default="reference",
+                    help="'reference' = convexity.Convexity as published; "
+                         "'fast' = qsig.fast (int64 + numba). Cost constants differ "
+                         "between them, so never mix them in one table.")
     ap.add_argument("--pinned", action="store_true", help="record that workers were CPU-pinned")
     ap.add_argument("--limit", type=int, default=0, help="debug: only the first N shapes")
     args = ap.parse_args()
@@ -103,8 +118,9 @@ def main():
         shapes = shapes[: args.limit]
     dirs = resolve_dirs(args.dirs, args.max_norm2, args.max_component)
 
+    tag = descriptor.implementation_tag(args.impl)
     st = store.ResultStore(args.out, repo_dir=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                           pinned=args.pinned)
+                           pinned=args.pinned, impl=tag)
     st.write_meta({
         **dataset.protocol_metadata(args.long_side),
         "subset": args.subset,
@@ -113,6 +129,7 @@ def main():
         "n_directions": len(dirs),
         "directions": [[d.p, d.q] for d in dirs],
         "workers": args.workers,
+        "impl": tag,
         "threadguard": qsig.threadguard.report(),
     })
 
@@ -125,7 +142,8 @@ def main():
     predicted = len(shapes) * directions.total_cost(dirs) / max(1, args.workers)
     print(f"{len(shapes)} shapes x {len(dirs)} directions = {len(shapes)*len(dirs)} jobs; "
           f"{len(done)} already done, {len(todo)} to run")
-    print(f"governor={st.governor} host={st.host} commit={st.commit} workers={args.workers}")
+    print(f"governor={st.governor} host={st.host} commit={st.commit} "
+          f"workers={args.workers} impl={tag}")
     print(f"predicted wall clock from the IWCIA-fitted cost law: {predicted/60:.1f} min "
           f"(refit on this machine before quoting -- scripts/fit_cost_law.py)")
     if not todo:
@@ -135,7 +153,7 @@ def main():
     written = 0
     buf = []
     ctx = mp.get_context("spawn" if os.name == "nt" else "fork")
-    with ctx.Pool(args.workers, initializer=_init, initargs=(shapes,)) as pool_:
+    with ctx.Pool(args.workers, initializer=_init, initargs=(shapes, args.impl)) as pool_:
         for i, row in enumerate(pool_.imap_unordered(_job, todo, chunksize=1), 1):
             buf.append(row)
             if len(buf) >= 200:

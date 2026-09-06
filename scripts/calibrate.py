@@ -45,7 +45,7 @@ import qsig.threadguard  # noqa: E402,F401  -- MUST precede numpy
 
 import numpy as np  # noqa: E402
 
-from qsig import dataset, directions, store  # noqa: E402
+from qsig import dataset, descriptor, directions, store  # noqa: E402
 from qsig.descriptor import q_concavity  # noqa: E402
 
 # A spread of |r|^2 from 1 to 109, so the law can actually be fitted.
@@ -119,6 +119,9 @@ def main():
                     help="'all' matches IWCIA Table 1's protocol; 'device' is 128x128 only")
     ap.add_argument("--long-side", type=int, default=dataset.LONG_SIDE)
     ap.add_argument("--dirs", default=DEFAULT_DIRS, help="comma list of pxq")
+    ap.add_argument("--impl", choices=descriptor.IMPLEMENTATIONS, default="reference",
+                    help="'reference' = convexity.Convexity as published (the default, "
+                         "and the only one comparable to IWCIA Table 1); 'fast' = qsig.fast")
     ap.add_argument("--out", default="", help="optional CSV to append the raw timings to")
     args = ap.parse_args()
 
@@ -135,8 +138,11 @@ def main():
     shapes = shapes[::step][: args.shapes]
     areas = np.array([s.img.size for s in shapes], float)
 
+    tag = descriptor.implementation_tag(args.impl)
+    descriptor.warm_up(args.impl)   # JIT compile must not land inside a timed run
     gov = store.cpu_governor()
     print(f"host       {platform.node()}")
+    print(f"impl       {tag}")
     print(f"python     {platform.python_version()}   numpy {np.__version__}")
     print(f"platform   {platform.platform()}")
     print(f"governor   {gov}")
@@ -149,9 +155,12 @@ def main():
     if gov != "performance":
         print("WARNING: governor is not 'performance'; timings will not be reproducible.\n")
 
-    st = store.ResultStore(args.out) if args.out else None
+    st = store.ResultStore(args.out, impl=tag) if args.out else None
     print(f"{'dir':>8s} {'|r|^2':>6s} {'mean':>8s} {'median':>8s} {'min':>8s} {'max':>8s} "
           f"{'IWCIA T1':>9s} {'ratio':>7s}")
+    if args.impl != "reference":
+        print("  (IWCIA T1 column is for context only -- their seconds are from the "
+              "reference\n   implementation on a 2016 stack, not comparable to this one)")
     print("-" * 68)
     med = []
     obs_area, obs_n2, obs_sec = [], [], []
@@ -159,7 +168,7 @@ def main():
         pad = max(d.p, d.q)
         secs, rows = [], []
         for sh in shapes:
-            value, dt = q_concavity(sh.img, d)
+            value, dt = q_concavity(sh.img, d, args.impl)
             secs.append(dt)
             h, w = sh.img.shape
             obs_area.append((h + 2 * pad) * (w + 2 * pad))

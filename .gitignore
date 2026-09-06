@@ -166,3 +166,6 @@ results/
 # Datasets are not vendored.
 MPEG7dataset.zip
 mpeg7*/
+
+# PyCharm project files
+.idea/

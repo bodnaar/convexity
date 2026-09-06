@@ -22,8 +22,13 @@ import subprocess
 FIELDS = [
     "shape_id", "cls", "p", "q", "angle_deg", "norm2",
     "resolution", "E", "seconds",
-    "host", "governor", "pinned", "git_commit",
+    "impl", "host", "governor", "pinned", "git_commit",
 ]
+
+# `impl` is not bookkeeping: the cost CONSTANTS depend on the implementation
+# (handoff sec 3.1.1), so a table mixing "reference" and "fast" rows would fit a
+# meaningless cost law. Every row carries the tag from
+# qsig.descriptor.implementation_tag, e.g. "reference", "fast+numba".
 
 
 def _git_commit(repo_dir: str = ".") -> str:
@@ -57,10 +62,12 @@ def cpu_governor() -> str:
 
 
 class ResultStore:
-    def __init__(self, path: str, repo_dir: str = ".", pinned: bool = False):
+    def __init__(self, path: str, repo_dir: str = ".", pinned: bool = False,
+                 impl: str = "reference"):
         self.path = path
         self.repo_dir = repo_dir
         self.pinned = pinned
+        self.impl = impl
         self.host = platform.node()
         self.governor = cpu_governor()
         self.commit = _git_commit(repo_dir)
@@ -95,6 +102,7 @@ class ResultStore:
             w = csv.DictWriter(fh, fieldnames=FIELDS, extrasaction="ignore")
             for r in rows:
                 r = dict(r)
+                r.setdefault("impl", self.impl)
                 r.setdefault("host", self.host)
                 r.setdefault("governor", self.governor)
                 r.setdefault("pinned", self.pinned)
@@ -108,6 +116,7 @@ class ResultStore:
     def write_meta(self, meta: dict) -> None:
         meta = dict(meta)
         meta.update(
+            impl=self.impl,
             host=self.host, governor=self.governor, pinned=self.pinned,
             git_commit=self.commit, python=platform.python_version(),
             platform=platform.platform(),
@@ -123,7 +132,8 @@ def load_table(path: str):
         for row in csv.DictReader(fh):
             try:
                 key = (row["shape_id"], int(row["p"]), int(row["q"]), int(row["resolution"]))
-                out[key] = {"cls": row["cls"], "E": float(row["E"]), "seconds": float(row["seconds"])}
+                out[key] = {"cls": row["cls"], "E": float(row["E"]),
+                            "seconds": float(row["seconds"]), "impl": row.get("impl", "")}
             except (KeyError, ValueError):
                 continue
     return out

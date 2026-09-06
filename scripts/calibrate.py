@@ -48,8 +48,15 @@ import numpy as np  # noqa: E402
 from qsig import dataset, descriptor, directions, store  # noqa: E402
 from qsig.descriptor import q_concavity  # noqa: E402
 
-# A spread of |r|^2 from 1 to 109, so the law can actually be fitted.
-DEFAULT_DIRS = "1x0,2x1,3x1,5x1,1x7,10x3"
+# A spread of |r|^2 from 1 to 109 so the law can be fitted, PLUS the
+# discriminating triple (10,1) (10,3) (7,8).
+#
+# Those three have nearly equal |r|^2 (101, 109, 113) but wildly different
+# (p+q)^2 (121, 169, 225). If cost tracks |r|^2 their times differ by ~12%; if
+# it tracks the published (p+q)^2 bound they differ by ~86%. A regression over
+# directions that happen to rank the same way under both models cannot separate
+# them however good its R^2 is -- this triple can, in three measurements.
+DEFAULT_DIRS = "1x0,2x1,3x1,5x1,1x7,10x1,10x3,7x8"
 
 
 def turbo_state():
@@ -213,6 +220,39 @@ def main():
     print(f"  direction-dependent share at |r|^2=109: "
           f"{c1 * 109 / (c0 + c1 * 109) * 100:.1f}% of the work")
 
+    # --- model discrimination -------------------------------------------
+    # Group directions whose |r|^2 agree to within 15% but whose (p+q)^2 differ
+    # by more than 25%. Within such a group the two models make sharply
+    # different predictions, so the comparison is decisive rather than statistical.
+    groups = []
+    for i, di in enumerate(dirs):
+        grp = [j for j, dj in enumerate(dirs)
+               if abs(dj.norm2 - di.norm2) <= 0.15 * di.norm2]
+        if len(grp) >= 2:
+            box = [(dirs[j].p + dirs[j].q) ** 2 for j in grp]
+            if max(box) > 1.25 * min(box):
+                grp = tuple(sorted(grp))
+                if grp not in groups:
+                    groups.append(grp)
+    if groups:
+        print("\nmodel discrimination -- near-equal |r|^2, very different (p+q)^2:")
+        print(f"  {'dir':>8s} {'|r|^2':>6s} {'(p+q)^2':>8s} {'measured':>9s} "
+              f"{'pred |r|^2':>11s} {'pred (p+q)^2':>13s}")
+        for grp in groups:
+            for j in grp:
+                d = dirs[j]
+                box = (d.p + d.q) ** 2
+                print(f"  {f'({d.p},{d.q})':>8s} {d.norm2:6d} {box:8d} {med[j]:9.4f} "
+                      f"{a1 + b1 * d.norm2:11.4f} {a2 + b2 * box:13.4f}")
+            obs = [med[j] for j in grp]
+            pn = [a1 + b1 * dirs[j].norm2 for j in grp]
+            pb = [a2 + b2 * (dirs[j].p + dirs[j].q) ** 2 for j in grp]
+            rng = lambda v: (max(v) / min(v) - 1) * 100
+            print(f"  spread within this group:  measured {rng(obs):5.1f}%   "
+                  f"|r|^2 predicts {rng(pn):5.1f}%   (p+q)^2 predicts {rng(pb):5.1f}%")
+            verdict = "|r|^2" if abs(rng(obs) - rng(pn)) < abs(rng(obs) - rng(pb)) else "(p+q)^2"
+            print(f"  -> the measurement follows {verdict}")
+
     cheap, dear = med[0], med[-1]
     spread = dear / cheap
     pub_spread = 65.21 / 2.54
@@ -237,13 +277,17 @@ def main():
         print("         alongside your accuracies (handoff sec 3.1.1).")
     elif r1 > 0.98 and r2_ >= r1:
         print("VERDICT: the |r|^2 law fits well (R2 = "
-              f"{r1:.4f}) but does NOT separate from the")
-        print(f"         (r1+r2)^2 bound (R2 = {r2_:.4f}) at this image size. That is")
-        print("         expected on SMALL images: padding by max(p,q) inflates the array")
-        print("         more for long directions, adding a spurious (p+q)-shaped term that")
-        print("         both models can absorb. Use the area-normalised fit above, which")
-        print("         divides it out, and re-run at the full 128 px protocol -- the two")
-        print("         models separate cleanly there (0.998 vs 0.903 on IWCIA Table 1).")
+              f"{r1:.4f}) but this direction set does NOT")
+        print(f"         separate it from the (p+q)^2 bound (R2 = {r2_:.4f}).")
+        print("         That is a property of the SET, not of the machine: over these")
+        print("         directions the two quantities rank the same way, so both models")
+        print("         fit whatever the truth is. No amount of extra shapes will fix it.")
+        print("         Re-run including the discriminating triple, which is in the")
+        print("         default --dirs:   --dirs 1x0,2x1,3x1,5x1,1x7,10x1,10x3,7x8")
+        print("         (10,1) (10,3) (7,8) have |r|^2 = 101,109,113 but (p+q)^2 =")
+        print("         121,169,225, so the models predict a ~12% vs ~86% spread across")
+        print("         them and one measurement settles it. See the discrimination")
+        print("         table above if it was printed.")
     elif r1 > 0.9:
         print("VERDICT: the law roughly holds but the fit is loose (R2 = "
               f"{r1:.3f}). Most likely another process is on the machine -- check the")

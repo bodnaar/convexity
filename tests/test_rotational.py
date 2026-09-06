@@ -146,3 +146,16 @@ def test_the_floor_is_an_ADDITIVE_bias_not_symmetric_noise():
         s, _ = q_concavity(img, d, "rows")
         r, _ = rotational.rotational_value(img, d, "rows")
         assert r >= s - 1e-15, f"({d.p},{d.q}): R={r} below S={s} on a Q-convex shape"
+
+
+def test_result_metadata_records_the_libraries_that_can_change_a_result():
+    """Family R is not reproducible across OpenCV builds (handoff sec 3.3.4):
+    two machines agreed exactly on family S and differed in 39 of 48 family-R
+    values. A table that does not name its cv2 build cannot be compared to
+    another one later."""
+    from qsig.store import library_versions
+
+    v = library_versions()
+    assert set(v) == {"numpy", "opencv", "pillow", "numba"}
+    assert v["opencv"], "opencv version must be recorded when cv2 is importable"
+    assert v["numpy"]

@@ -42,9 +42,10 @@ _SHAPES = {}
 _IMPL = "reference"
 _FAMILY = "S"
 _EXPAND = True
+_PROTOCOL = "iwcia2025"
 
 
-def _init(shapes, impl, family="S", expand=True):
+def _init(shapes, impl, family="S", expand=True, protocol="iwcia2025"):
     """Runs once per worker process.
 
     Warming the JIT here is not an optimisation, it is a correctness
@@ -52,8 +53,8 @@ def _init(shapes, impl, family="S", expand=True):
     roughly a second, and without this that compile lands inside whichever job
     the worker happens to pick up first and inflates it by ~1000x.
     """
-    global _IMPL, _FAMILY, _EXPAND
-    _IMPL, _FAMILY, _EXPAND = impl, family, expand
+    global _IMPL, _FAMILY, _EXPAND, _PROTOCOL
+    _IMPL, _FAMILY, _EXPAND, _PROTOCOL = impl, family, expand, protocol
     for sh in shapes:
         _SHAPES[sh.shape_id] = sh
     descriptor.warm_up(impl)
@@ -64,7 +65,8 @@ def _job(args):
     sh = _SHAPES[shape_id]
     d = directions.Direction(p, q)
     if _FAMILY == "R":
-        value, secs = rotational.rotational_value(sh.img, d, _IMPL, expand=_EXPAND)
+        value, secs = rotational.rotational_value(sh.img, d, _IMPL, expand=_EXPAND,
+                                                  protocol=_PROTOCOL)
     else:
         value, secs = q_concavity(sh.img, d, _IMPL)
     return {
@@ -123,6 +125,11 @@ def main():
                     help="family R: rotate inside the original canvas, clipping the "
                          "corners. IWCIA's flat 2.54 s/component implies they did this; "
                          "the default expands the canvas so no object pixels are lost.")
+    ap.add_argument("--rot-protocol", choices=("iwcia2025", "exact"), default="iwcia2025",
+                    help="family R: 'iwcia2025' reproduces test_rots_mpeg7.py exactly "
+                         "(nearest, centre w/2, no expansion, INTEGER-degree rotation) "
+                         "and is the published baseline; 'exact' is the principled "
+                         "variant (exact angle, expansion, linear).")
     ap.add_argument("--pinned", action="store_true", help="record that workers were CPU-pinned")
     ap.add_argument("--limit", type=int, default=0, help="debug: only the first N shapes")
     args = ap.parse_args()
@@ -147,6 +154,7 @@ def main():
         "impl": tag,
         "family": args.family,
         "rot_expand": (args.family == "R") and not args.no_rot_expand,
+        "rot_protocol": args.rot_protocol if args.family == "R" else "",
         "threadguard": qsig.threadguard.report(),
     })
 
@@ -172,7 +180,7 @@ def main():
     buf = []
     ctx = mp.get_context("spawn" if os.name == "nt" else "fork")
     with ctx.Pool(args.workers, initializer=_init, initargs=(shapes, args.impl, args.family,
-                                        not args.no_rot_expand)) as pool_:
+                                        not args.no_rot_expand, args.rot_protocol)) as pool_:
         for i, row in enumerate(pool_.imap_unordered(_job, todo, chunksize=1), 1):
             buf.append(row)
             if len(buf) >= 200:

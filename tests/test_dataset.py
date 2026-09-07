@@ -103,3 +103,36 @@ def test_pad_square_centres_and_preserves_every_object_pixel():
         cols = np.flatnonzero(out.any(axis=0))
         assert abs((rows[0]) - (out.shape[0] - 1 - rows[-1])) <= 1
         assert abs((cols[0]) - (out.shape[1] - 1 - cols[-1])) <= 1
+
+
+def test_a_table_refuses_to_resume_under_a_different_protocol(tmp_path):
+    """The silent-staleness hazard. `done_keys` is keyed on the --long-side
+    ARGUMENT, not on the image's real size, so a preprocessing change is
+    invisible to resume: after the downscale-only fix, 35 of 1400 MPEG-7 images
+    changed size and re-running over the old table skipped every one of them
+    while reporting a full, healthy run."""
+    from qsig.store import ResultStore
+
+    p = str(tmp_path / "t.csv")
+    st = ResultStore(p, impl="rows+numba", family="S")
+    st.write_meta({"binarise": "fixed threshold 128", "long_side": 128, "subset": "all"})
+    st.append([{"shape_id": "a-1", "cls": "a", "p": 1, "q": 0, "angle_deg": 0.0,
+                "norm2": 1, "resolution": 128, "E": 0.5, "seconds": 0.1}])
+
+    same = ResultStore(p, impl="rows+numba", family="S")
+    assert same.protocol_conflicts(
+        {"binarise": "fixed threshold 128", "long_side": 128, "subset": "all"}) == {}
+
+    bad = same.protocol_conflicts(
+        {"binarise": "minority class", "long_side": 128, "subset": "all"})
+    assert "binarise" in bad and bad["binarise"][1] == "minority class"
+
+    assert "subset" in same.protocol_conflicts(
+        {"binarise": "fixed threshold 128", "long_side": 128, "subset": "device"})
+
+
+def test_no_prior_table_means_no_conflict(tmp_path):
+    from qsig.store import ResultStore
+
+    st = ResultStore(str(tmp_path / "fresh.csv"), impl="rows+numba")
+    assert st.protocol_conflicts({"binarise": "anything"}) == {}

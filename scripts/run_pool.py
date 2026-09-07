@@ -130,6 +130,9 @@ def main():
                          "(nearest, centre w/2, no expansion, INTEGER-degree rotation) "
                          "and is the published baseline; 'exact' is the principled "
                          "variant (exact angle, expansion, linear).")
+    ap.add_argument("--force", action="store_true",
+                    help="append even if the existing table was written under a "
+                         "different protocol. Almost always wrong; see the check.")
     ap.add_argument("--pinned", action="store_true", help="record that workers were CPU-pinned")
     ap.add_argument("--limit", type=int, default=0, help="debug: only the first N shapes")
     args = ap.parse_args()
@@ -143,7 +146,7 @@ def main():
     tag = descriptor.implementation_tag(args.impl)
     st = store.ResultStore(args.out, repo_dir=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                            pinned=args.pinned, impl=tag, family=args.family)
-    st.write_meta({
+    meta = {
         **dataset.protocol_metadata(args.long_side),
         "subset": args.subset,
         "dirs_spec": args.dirs,
@@ -153,10 +156,29 @@ def main():
         "workers": args.workers,
         "impl": tag,
         "family": args.family,
-        "rot_expand": (args.family == "R") and not args.no_rot_expand,
+        "rot_expand": ((args.family == "R") and args.rot_protocol == "exact"
+                       and not args.no_rot_expand),
         "rot_protocol": args.rot_protocol if args.family == "R" else "",
         "threadguard": qsig.threadguard.report(),
-    })
+    }
+
+    # A results table is only resumable under the SAME protocol. `done_keys` is
+    # (shape_id, p, q, resolution, family) and `resolution` is the --long-side
+    # ARGUMENT, not the image's actual size, so a preprocessing change is
+    # invisible to it: after the rev. 18 downscale-only fix, 35 of the 1400
+    # MPEG-7 images changed size, and re-running over an existing table skipped
+    # every one of them and silently kept stale values. Refuse instead.
+    stale = st.protocol_conflicts(meta)
+    if stale and not args.force:
+        print("REFUSING to append to a table written under a different protocol:")
+        for k, (was, now) in sorted(stale.items()):
+            print(f"    {k}: table has {was!r}, this run is {now!r}")
+        raise SystemExit(
+            "The resume key cannot see preprocessing changes, so appending here "
+            "would mix protocols and skip the rows that actually changed.\n"
+            "Delete the table and its .meta.json, or pass --force if you are sure."
+        )
+    st.write_meta(meta)
 
     done = st.done_keys()
     todo = [

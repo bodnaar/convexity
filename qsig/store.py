@@ -155,6 +155,33 @@ class ResultStore:
             os.fsync(fh.fileno())
         return n
 
+    # Fields that define the PROTOCOL. If any of these differs from what a
+    # previous run recorded, the existing rows are not comparable and the
+    # append-and-resume path must not be taken (handoff sec 7.4).
+    PROTOCOL_FIELDS = (
+        "binarise", "canvas", "resample", "long_side", "impl", "family",
+        "rot_protocol", "rot_expand", "subset",
+    )
+
+    def protocol_conflicts(self, meta: dict) -> dict:
+        """{field: (recorded, requested)} for every protocol field that differs.
+
+        Empty when there is no prior meta, or when the protocols agree.
+        """
+        path = os.path.splitext(self.path)[0] + ".meta.json"
+        if not os.path.exists(path) or not os.path.exists(self.path):
+            return {}
+        try:
+            with open(path) as fh:
+                old = json.load(fh)
+        except Exception:
+            return {}
+        out = {}
+        for k in self.PROTOCOL_FIELDS:
+            if k in old and k in meta and old[k] != meta[k]:
+                out[k] = (old[k], meta[k])
+        return out
+
     def write_meta(self, meta: dict) -> None:
         meta = dict(meta)
         meta.update(

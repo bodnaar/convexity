@@ -74,8 +74,16 @@ def _binarise(arr: np.ndarray) -> np.ndarray:
 
 
 def _rescale(bin_img: np.ndarray, long_side: int) -> np.ndarray:
+    """Downscale so the long side is `long_side`. NEVER upscale.
+
+    The published pipeline guards its resize with `if fac < 1`, so an image
+    already smaller than 128 px is left at its own size. 35 of the 1402 MPEG-7
+    images have a long side below 128 (down to 50), so upscaling them -- which
+    this function used to do -- puts 2.5 % of the dataset at a scale the
+    published numbers never used, and inflates its cost besides.
+    """
     h, w = bin_img.shape
-    if max(h, w) == long_side:
+    if max(h, w) <= long_side:
         return bin_img
     scale = long_side / max(h, w)
     nh, nw = max(1, round(h * scale)), max(1, round(w * scale))
@@ -163,7 +171,7 @@ def protocol_metadata(long_side: int = LONG_SIDE) -> dict:
     return {
         "dataset": "MPEG-7 CE-Shape-1",
         "long_side": long_side,
-        "resample": "nearest",
+        "resample": "nearest, downscale only (never upscale)",
         "binarise": "fixed threshold 128, bright is object (matches IWCIA 2025)",
         "canvas": "centred on a square of side max(h,w)",
         "classifier": "1NN",

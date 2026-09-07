@@ -159,3 +159,68 @@ def test_result_metadata_records_the_libraries_that_can_change_a_result():
     assert set(v) == {"numpy", "opencv", "pillow", "numba"}
     assert v["opencv"], "opencv version must be recorded when cv2 is importable"
     assert v["numpy"]
+
+
+# ---------------------------------------------------------------------------
+# Faithfulness to test_rots_mpeg7.py, the script that produced the published
+# Table 2. Reproduced Device 70.00 % against their 71.5 %, where our own
+# conventions gave 65.00 %. See qsig/rotational.py PROTOCOLS.
+# ---------------------------------------------------------------------------
+
+def test_iwcia_protocol_rotates_by_the_rounded_integer_degree():
+    """Their direction table is keyed by rounded degrees and the script rotates
+    by the key, so the rotational component at "18" is a rotation by 18 deg
+    while the matching rotation-free component uses (3,1) = 18.435 deg. The two
+    families do not evaluate quite the same directions -- a real property of the
+    published baseline, and one this codebase must preserve to reproduce it."""
+    img = _disc(128, 50)               # 0.4 deg is below the resolution of a
+    d = D.Direction(3, 1)              # 40 px blob, so use a protocol-sized one
+    assert d.angle == pytest.approx(18.4349, abs=1e-3)
+    a = rotational.rotate_binary(img, round(d.angle), protocol="iwcia2025")
+    b = rotational.rotate_binary(img, d.angle, protocol="iwcia2025")
+    assert not np.array_equal(a, b), "18 deg and 18.435 deg must differ at 128 px"
+    from qsig.descriptor import q_concavity
+    v, _ = rotational.rotational_value(img, d, "rows", protocol="iwcia2025")
+    w, _ = q_concavity(a, D.Direction(1, 0), "rows")
+    assert v == pytest.approx(w, rel=1e-12), "default path must use the integer degree"
+
+
+def test_iwcia_protocol_ignores_expand_and_keeps_the_canvas():
+    img = _blob()
+    for exp in (True, False):
+        out = rotational.rotate_binary(img, 30.0, expand=exp, protocol="iwcia2025")
+        assert out.shape == img.shape, "their script passes dsize=(w,h); no expansion"
+
+
+def test_exact_protocol_still_expands_and_differs_from_theirs():
+    img = _blob()
+    ours = rotational.rotate_binary(img, 30.0, expand=True, protocol="exact")
+    theirs = rotational.rotate_binary(img, 30.0, protocol="iwcia2025")
+    assert ours.shape != theirs.shape
+    assert ours.sum() > 0 and theirs.sum() > 0
+
+
+def test_unknown_protocol_is_rejected():
+    with pytest.raises(ValueError):
+        rotational.rotate_binary(_blob(), 10.0, protocol="whatever")
+
+
+def test_the_symmetry_point_centre_makes_quarter_turns_exact():
+    """The objective criterion that makes (w-1)/2 the right rotation centre and
+    (w/2, h/2) a defect: pixel centres lie at 0..w-1, so only (w-1)/2 is a
+    symmetry point of the lattice. Rotating by 90 or 180 degrees about it must
+    be an exact permutation of the grid."""
+    import cv2
+
+    rng = np.random.default_rng(0)
+    for n in (128, 127):
+        a = (rng.random((n, n)) > 0.6).astype(np.uint8) * 255
+        for deg, ref in ((90, np.rot90(a, 1)), (180, np.rot90(a, 2))):
+            m = cv2.getRotationMatrix2D((n / 2 - 0.5, n / 2 - 0.5), deg, 1)
+            good = cv2.warpAffine(a, m, (n, n), None, cv2.INTER_NEAREST,
+                                  cv2.BORDER_CONSTANT, 0)
+            assert np.array_equal(good, ref), f"{n}px {deg}deg must be exact"
+            m2 = cv2.getRotationMatrix2D((n / 2, n / 2), deg, 1)
+            theirs = cv2.warpAffine(a, m2, (n, n), None, cv2.INTER_NEAREST,
+                                    cv2.BORDER_CONSTANT, 0)
+            assert not np.array_equal(theirs, ref), "if this passes, re-check sec 3.3.5"

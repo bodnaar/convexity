@@ -1,11 +1,76 @@
-# Q-convexity shape descriptors — QSIG-FAST working branch
+# Q-convexity shape descriptors — general direction pairs
 
-**Branch `qsig-harness`.** The experiment harness built for the DGMM 2027
-paper *Minimum-Cost Direction Sets for Multidirectional Q-Concavity
-Descriptors* (single-author, submitted 2026-09-12). Tagged at
-`dgmm2027-submission`.
+**Branch `qsig-pairs`.** Journal-paper work, branched from `qsig-harness`
+(the DGMM 2027 harness, tagged `dgmm2027-submission`). Everything documented
+below still applies; this section says what is new here.
 
 For the repository layout and the other branches, see the README on `main`.
+
+## What this branch is for
+
+Two threads, both aimed at a single-author journal paper:
+
+1. **`E^{r,s}` for an arbitrary pair of lattice directions** — `qsig/pairs.py`.
+   IWCIA 2025 already writes the descriptor as `E^{r,s}` and states that the
+   normalisation of its Proposition 1 generalises to any pair `r, s`, but only
+   orthogonal pairs `(r, r_perp)` have ever been computed. This computes the
+   general case.
+2. **Normalisation** — the signature-centring step in `d_C` is not a neutral
+   preprocessing choice; it costs 4.43 accuracy points on the full MPEG-7 set
+   and gains 8.50 on the Device subset, because it discards the signature mean,
+   which is the single most discriminative feature on a diverse class set and
+   nuisance variance on a narrow one.
+
+### The pair kernel in one paragraph
+
+`qsig.fast` derives all four quadrants from ONE summed-area table reused via
+`np.rot90`. That is available only because an orthogonal pair spans exactly 90
+degrees, so every cone fits in a quadrant of the array. `qsig.pairs` runs four
+passes instead, one per cone, and differs in exactly two places:
+
+- **The mask** becomes the strict interior of the fundamental parallelogram of
+  the sublattice `<r, s>`. For a primitive pair, Pick's theorem gives
+  `|det(r, s)| - 1` interior points, so the direct evaluation costs
+  `Theta(mn |det(r, s)|)` — the conference paper's `Theta(mn(p^2+q^2))` is the
+  orthogonal special case, since `|det(r, r_perp)| = p^2 + q^2`.
+- **The traversal order.** A raster scan is a valid recurrence only when both
+  steps point up-left. Two of the four cones of a non-orthogonal pair are
+  *wider than 90 degrees*, and no rotation or reflection of the array fixes
+  them, so the scan runs in increasing `f.P` for a functional `f` strictly
+  negative on both steps (closed form, not a search).
+
+The recurrence itself is unchanged — it was always written in terms of two
+independent steps.
+
+### What is measured so far
+
+- With `s = r_perp`, `qsig.pairs` reproduces `qsig.fast` **bit-for-bit** on
+  every quadrant, `phi` and `E`, for all 64 pool directions on three test
+  images — and reproduces the stored `device_n130_rows.csv` values on real
+  128 px MPEG-7 shapes with **zero** difference. `tests/test_pairs.py` is that
+  gate; it chains the new kernel back to `convexity.Convexity` through
+  `qsig.fast`.
+- **The row-prefix kernel does generalise.** The mask is the interior of a
+  convex parallelogram, so each horizontal slice is a single run for any pair,
+  not just an orthogonal one. The bound becomes
+  `Theta(mn (|r_0| + |s_0|))` — the parallelogram's row extent — which reduces
+  to `Theta(mn(p+q))` when `s = r_perp`. Verified on 4032 pairs.
+- That bound is **asymmetric in the two axes** because the kernel uses
+  horizontal prefix sums: `rows <= |r_0|+|s_0|+1` holds for 100 % of pairs
+  while the column analogue holds for only 74 %. Transposing when the column
+  extent is smaller is free and not yet implemented.
+
+### Open
+
+- Do non-orthogonal pairs carry information the orthogonal ones do not? Until
+  that is answered the rest is machinery without a result.
+- `|det(r, s)|` decouples cost from angle: a near-parallel pair is cheap but
+  has degenerate cones. Selection over *pairs* is a different combinatorial
+  object from selection over directions.
+
+---
+
+# Inherited from `qsig-harness`
 
 ## What this branch adds
 

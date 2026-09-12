@@ -159,6 +159,23 @@ def test_non_primitive_input_is_reduced_not_rejected():
     assert pairs.as_primitive((3, -6)) == (1, -2)
 
 
+def test_E_is_invariant_to_sign_and_to_swapping_the_pair():
+    """r and -r are the same LINE, and the four cones are spanned by +-r, +-s.
+
+    The descriptor multiplies all four cones, so flipping either sign or
+    swapping the two directions permutes the factors and must leave E alone.
+    Pinned because the sweep depends on it: the exact-bisector families
+    generate partners like (b, a) whose sign convention is not the pool's.
+    """
+    img = _blocky()
+    for r, s in [((7, -6), (6, -5)), ((2, -1), (-1, 2)), ((1, 0), (0, 1))]:
+        base = pairs.compute(img, 1, 0, r, s, "points")["q1"]
+        for rr, ss in [((-r[0], -r[1]), s), (r, (-s[0], -s[1])),
+                       ((-r[0], -r[1]), (-s[0], -s[1])), (s, r)]:
+            assert pairs.compute(img, 1, 0, rr, ss, "points")["q1"] == base, \
+                f"E changed for {rr},{ss} against {r},{s}"
+
+
 def test_parallel_directions_are_refused():
     with pytest.raises(ValueError):
         pairs.compute(_blocky(), 1, 0, (1, -2), (2, -4), "points")

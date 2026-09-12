@@ -20,7 +20,7 @@ From *A Spatial Convexity Descriptor for Object Enlacement* — S. Brunetti,
 P. Balázs, P. Bodnár, J. Szűcs, DGCI 2019.
 <https://doi.org/10.1007/978-3-030-14085-4_26>
 
-Tagged **`published-reference`**. Treat it as read-only: later work adds
+Tagged **`dgci2019-reference`**. Treat it as read-only: later work adds
 alongside it rather than editing it, so that the correctness of a faster kernel
 is always decidable against something that has not moved.
 
@@ -36,7 +36,7 @@ is always decidable against something that has not moved.
 
 | tag | what it marks |
 |---|---|
-| `published-reference` | the reference implementation as published |
+| `dgci2019-reference` | the reference implementation as published at DGCI 2019 |
 | `dgmm2027-submission` | the code behind the DGMM 2027 paper as submitted, 2026-09-12 |
 
 ## Papers

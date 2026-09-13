@@ -35,7 +35,7 @@ import qsig.threadguard  # noqa: E402,F401  -- MUST precede numpy
 import multiprocessing as mp  # noqa: E402
 import time  # noqa: E402
 
-from qsig import dataset, descriptor, directions, rotational, store  # noqa: E402
+from qsig import dataset, descriptor, directions, rotational, skeview, store  # noqa: E402
 from qsig.descriptor import q_concavity  # noqa: E402
 
 _SHAPES = {}
@@ -103,7 +103,14 @@ def resolve_dirs(spec: str, max_norm2: int, max_component: int):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--data", required=True, help="MPEG7dataset.zip or an extracted directory")
+    ap.add_argument("--data", required=True,
+                    help="MPEG7dataset.zip / extracted dir, or a skeview <Dataset>-GT.zip "
+                         "when --dataset is not mpeg7")
+    ap.add_argument("--dataset", choices=("mpeg7", "animal2000", "swedishleaves"), default="mpeg7",
+                    help="mpeg7 = qsig.dataset.load_mpeg7 (default, unchanged behaviour); "
+                         "animal2000/swedishleaves = qsig.skeview.load_skeview, the second "
+                         "benchmark from second_benchmark_2026-09-13.md. These have no Device "
+                         "subset -- --subset must be 'all' for them.")
     ap.add_argument("--subset", choices=("device", "all"), default="device")
     ap.add_argument("--long-side", type=int, default=dataset.LONG_SIDE)
     ap.add_argument("--dirs", default="pool",
@@ -137,8 +144,13 @@ def main():
     ap.add_argument("--limit", type=int, default=0, help="debug: only the first N shapes")
     args = ap.parse_args()
 
-    classes = dataset.DEVICE_CLASSES if args.subset == "device" else None
-    shapes = dataset.load_mpeg7(args.data, long_side=args.long_side, classes=classes)
+    if args.dataset == "mpeg7":
+        classes = dataset.DEVICE_CLASSES if args.subset == "device" else None
+        shapes = dataset.load_mpeg7(args.data, long_side=args.long_side, classes=classes)
+    else:
+        if args.subset == "device":
+            raise SystemExit(f"--dataset {args.dataset} has no Device subset; pass --subset all")
+        shapes = skeview.load_skeview(args.data, args.dataset, long_side=args.long_side)
     if args.limit:
         shapes = shapes[: args.limit]
     dirs = resolve_dirs(args.dirs, args.max_norm2, args.max_component)
@@ -148,7 +160,8 @@ def main():
                            pinned=args.pinned, impl=tag, family=args.family)
     meta = {
         **dataset.protocol_metadata(args.long_side),
-        "subset": args.subset,
+        "dataset": args.dataset,
+        "subset": args.subset if args.dataset == "mpeg7" else "all",
         "dirs_spec": args.dirs,
         "n_shapes": len(shapes),
         "n_directions": len(dirs),

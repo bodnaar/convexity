@@ -160,7 +160,7 @@ class ResultStore:
     # append-and-resume path must not be taken (handoff sec 7.4).
     PROTOCOL_FIELDS = (
         "binarise", "canvas", "resample", "long_side", "impl", "family",
-        "rot_protocol", "rot_expand", "subset",
+        "rot_protocol", "rot_expand", "subset", "dataset",
     )
 
     def protocol_conflicts(self, meta: dict) -> dict:

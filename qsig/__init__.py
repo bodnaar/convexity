@@ -14,4 +14,6 @@ __all__ = [
     "signature",
     "store",
     "classify",
+    "classical",
+    "skeview",
 ]

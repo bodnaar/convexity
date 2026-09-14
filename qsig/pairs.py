@@ -341,10 +341,28 @@ def compute(img: np.ndarray, obj_a=1, obj_b=0, r=(1, 0), s=(0, 1),
     denom = np.power(norm_part, 4).astype(np.float64)
     phi_norm = 256.0 * float((phi.astype(np.float64) / denom).sum())
     q = 0.0 if card_f_dash == 0 else phi_norm / card_f_dash
+
+    # Disjunctive combination over the two OPPOSING cone pairs. The cones were
+    # built in the order ((A,B), (A,-B), (-A,B), (-A,-B)), so the cone opposite
+    # to index 0 is index 3 and the one opposite to index 1 is index 2.
+    #   phi   = n0 n1 n2 n3 = (n0 n3)(n1 n2)   -- conjunctive, the product
+    #   phi_D = n0 n3 + n1 n2                  -- disjunctive, the sum
+    # Normalisation: with u = n0+n3, v = n1+n2 and u+v <= norm_part = N,
+    # AM-GM gives n0 n3 <= u^2/4 and n1 n2 <= v^2/4, and u^2+v^2 <= (u+v)^2,
+    # so phi_D <= N^2/4. The tight factor is therefore 4 (a 2-fold bound),
+    # against 256 = 4^4 for the 4-fold product above.
+    phi_d = (quads[0] * quads[3] + quads[1] * quads[2]) * b.astype(INT)
+    card_f_dash_d = int(np.count_nonzero(phi_d))
+    denom_d = np.power(norm_part, 2).astype(np.float64)
+    phi_d_norm = 4.0 * float((phi_d.astype(np.float64) / denom_d).sum())
+    q_d = 0.0 if card_f_dash_d == 0 else phi_d_norm / card_f_dash_d
+
     return {
         "q0": int(phi.sum()), "q1": q, "_det": d,
-        "_phi": phi, "_quads": quads,
+        "q0_d": int(phi_d.sum()), "q1_d": q_d,
+        "_phi": phi, "_quads": quads, "_phi_d": phi_d,
         "_norm_part": norm_part, "_card_f": int(card_f), "_card_f_dash": card_f_dash,
+        "_card_f_dash_d": card_f_dash_d,
     }
 
 

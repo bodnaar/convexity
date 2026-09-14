@@ -189,3 +189,61 @@ def test_zero_vector_is_refused():
 def test_empty_object_is_refused():
     with pytest.raises(ValueError):
         pairs.compute(np.zeros((8, 8), dtype=np.uint8), 1, 0, (1, 0), (0, 1))
+
+
+# ---------------------------------------------------------------------------
+# Disjunctive combination phi_D = n0 n3 + n1 n2
+# ---------------------------------------------------------------------------
+
+def _shapes_for_disj():
+    rng = np.random.default_rng(20260914)
+    out = []
+    g = np.zeros((17, 19), np.uint8); g[4:13, 5:15] = 1; out.append(g)          # rectangle: Q-convex
+    g = np.zeros((21, 21), np.uint8)
+    for i in range(21):
+        for j in range(21):
+            if abs(i - 10) + abs(j - 10) <= 7:
+                g[i, j] = 1
+    out.append(g)                                                                # diamond
+    g = np.zeros((19, 19), np.uint8); g[3:16, 3:8] = 1; g[3:8, 3:16] = 1
+    out.append(g)                                                                # L: not Q-convex
+    for _ in range(4):
+        g = (rng.random((16, 16)) < 0.45).astype(np.uint8)
+        if g.sum() and (g == 0).sum():
+            out.append(g)
+    return out
+
+
+@pytest.mark.parametrize("vec", [(1, 0), (1, -1), (3, -2), (2, -5), (5, -1)])
+def test_disjunctive_pairs_matches_fast(vec):
+    """The gate, extended to phi_D: pairs.py with s = perp(r) must agree with
+    fast.py bit-for-bit on the disjunctive quantities too."""
+    from qsig import fast
+    s = pairs.perp(vec)
+    for g in _shapes_for_disj():
+        a = pairs.compute(g, 1, 0, vec, s, method="points")
+        b = fast.compute(g, 1, 0, vec, method="points")
+        assert a["q0_d"] == b["q0_d"]
+        assert a["_card_f_dash_d"] == b["_card_f_dash_d"]
+        assert a["q1_d"] == pytest.approx(b["q1_d"], rel=0, abs=0)
+
+
+@pytest.mark.parametrize("vec", [(1, 0), (1, -1), (3, -2), (2, -5)])
+def test_disjunctive_in_unit_interval(vec):
+    """The 2-fold AM-GM bound phi_D <= norm_part^2 / 4 must actually hold."""
+    for g in _shapes_for_disj():
+        out = pairs.compute(g, 1, 0, vec, pairs.perp(vec), method="points")
+        assert 0.0 <= out["q1_d"] <= 1.0, out["q1_d"]
+        assert (out["_phi_d"] * 4 <= out["_norm_part"] ** 2).all()
+
+
+def test_disjunctive_zero_implies_conjunctive_zero():
+    """phi_D = n0 n3 + n1 n2 = 0 forces the product n0 n1 n2 n3 = 0, so the
+    disjunctive descriptor is the STRICTER one: sliver/Q-convexity under phi_D
+    implies it under phi, never the reverse."""
+    for vec in [(1, 0), (1, -1), (3, -2)]:
+        for g in _shapes_for_disj():
+            out = pairs.compute(g, 1, 0, vec, pairs.perp(vec), method="points")
+            zero_d = out["_phi_d"] == 0
+            zero_c = out["_phi"] == 0
+            assert (zero_c[zero_d]).all()

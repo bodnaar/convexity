@@ -339,11 +339,24 @@ def compute(img: np.ndarray, obj_a=1, obj_b=0, vec=(1, 0), method: str = "points
     phi_d_norm = 4.0 * float((phi_d.astype(np.float64) / denom_d).sum())
     q_d = 0.0 if card_f_dash_d == 0 else phi_d_norm / card_f_dash_d
 
+    # The ASYMMETRY between the two opposing pair-products. With u = q1 q4 and
+    # v = q2 q3, phi = u v and phi_D = u + v are the two elementary symmetric
+    # polynomials of (u, v), so pointwise
+    #     phi_A = |u - v| = sqrt(phi_D^2 - 4 phi).
+    # This is the quantity phi_D adds to phi, isolated. Same bound as phi_D:
+    # |u - v| <= max(u, v) <= N^2/4, so the factor is 4 over norm_part^2.
+    # ADDITIVE ONLY, like q0_d/q1_d above.
+    phi_a = np.abs(q1 * q4 - q2 * q3) * b.astype(INT)
+    card_f_dash_a = int(np.count_nonzero(phi_a))
+    phi_a_norm = 4.0 * float((phi_a.astype(np.float64) / denom_d).sum())
+    q_a = 0.0 if card_f_dash_a == 0 else phi_a_norm / card_f_dash_a
+
     return {
         "q0": int(phi.sum()), "q1": q,
         "q0_d": int(phi_d.sum()), "q1_d": q_d,
-        "_phi": phi, "_quads": (q1, q2, q3, q4), "_phi_d": phi_d,
-        "_card_f_dash_d": card_f_dash_d,
+        "q0_a": int(phi_a.sum()), "q1_a": q_a,
+        "_phi": phi, "_quads": (q1, q2, q3, q4), "_phi_d": phi_d, "_phi_a": phi_a,
+        "_card_f_dash_d": card_f_dash_d, "_card_f_dash_a": card_f_dash_a,
         "_norm_part": norm_part, "_card_f": int(card_f), "_card_f_dash": card_f_dash,
     }
 

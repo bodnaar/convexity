@@ -247,3 +247,47 @@ def test_disjunctive_zero_implies_conjunctive_zero():
             zero_d = out["_phi_d"] == 0
             zero_c = out["_phi"] == 0
             assert (zero_c[zero_d]).all()
+
+
+# ---------------------------------------------------------------------------
+# The asymmetry phi_A = |n0 n3 - n1 n2|
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("vec", [(1, 0), (1, -1), (3, -2), (2, -5), (5, -1)])
+def test_asymmetry_matches_fast(vec):
+    """Like phi_D, phi_A depends on the PAIRING, not just the set of counts,
+    so pairs.py and fast.py must agree exactly."""
+    from qsig import fast
+    s = pairs.perp(vec)
+    for g in _shapes_for_disj():
+        a = pairs.compute(g, 1, 0, vec, s, method="points")
+        b = fast.compute(g, 1, 0, vec, method="points")
+        assert a["q0_a"] == b["q0_a"]
+        assert a["_card_f_dash_a"] == b["_card_f_dash_a"]
+        assert a["q1_a"] == pytest.approx(b["q1_a"], rel=0, abs=0)
+
+
+@pytest.mark.parametrize("vec", [(1, 0), (1, -1), (3, -2)])
+def test_asymmetry_identity_on_raw_counts(vec):
+    """The algebraic account, pinned: with u = n0 n3 and v = n1 n2,
+        phi   = u v        (2nd elementary symmetric polynomial)
+        phi_D = u + v      (1st)
+        phi_A = |u - v|
+    so phi_A^2 == phi_D^2 - 4 phi exactly, on the RAW integer arrays. This is
+    the identity the phi_A experiment is testing at the aggregate level; here
+    it is verified where it is exactly true -- pointwise, before normalisation.
+    """
+    for g in _shapes_for_disj():
+        out = pairs.compute(g, 1, 0, vec, pairs.perp(vec), method="points")
+        pa, pd, pc = out["_phi_a"], out["_phi_d"], out["_phi"]
+        assert np.array_equal(pa.astype(object) ** 2,
+                              pd.astype(object) ** 2 - 4 * pc.astype(object))
+
+
+@pytest.mark.parametrize("vec", [(1, 0), (1, -1), (3, -2)])
+def test_asymmetry_in_unit_interval(vec):
+    """|u - v| <= max(u, v) <= (N/2)^2, so 4 phi_A <= norm_part^2."""
+    for g in _shapes_for_disj():
+        out = pairs.compute(g, 1, 0, vec, pairs.perp(vec), method="points")
+        assert 0.0 <= out["q1_a"] <= 1.0, out["q1_a"]
+        assert (out["_phi_a"] * 4 <= out["_norm_part"] ** 2).all()

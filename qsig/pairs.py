@@ -357,10 +357,20 @@ def compute(img: np.ndarray, obj_a=1, obj_b=0, r=(1, 0), s=(0, 1),
     phi_d_norm = 4.0 * float((phi_d.astype(np.float64) / denom_d).sum())
     q_d = 0.0 if card_f_dash_d == 0 else phi_d_norm / card_f_dash_d
 
+    # The asymmetry between the two opposing pair-products; see qsig.fast.
+    #   u = n0 n3, v = n1 n2;  phi = u v, phi_D = u + v, phi_A = |u - v|.
+    # Same 2-fold bound as phi_D, hence the same factor 4 over norm_part^2.
+    phi_a = np.abs(quads[0] * quads[3] - quads[1] * quads[2]) * b.astype(INT)
+    card_f_dash_a = int(np.count_nonzero(phi_a))
+    phi_a_norm = 4.0 * float((phi_a.astype(np.float64) / denom_d).sum())
+    q_a = 0.0 if card_f_dash_a == 0 else phi_a_norm / card_f_dash_a
+
     return {
         "q0": int(phi.sum()), "q1": q, "_det": d,
         "q0_d": int(phi_d.sum()), "q1_d": q_d,
-        "_phi": phi, "_quads": quads, "_phi_d": phi_d,
+        "q0_a": int(phi_a.sum()), "q1_a": q_a,
+        "_phi": phi, "_quads": quads, "_phi_d": phi_d, "_phi_a": phi_a,
+        "_card_f_dash_a": card_f_dash_a,
         "_norm_part": norm_part, "_card_f": int(card_f), "_card_f_dash": card_f_dash,
         "_card_f_dash_d": card_f_dash_d,
     }

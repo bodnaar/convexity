@@ -1,4 +1,4 @@
-"""int64 + vectorised Q-concavity -- handoff sec 7.4 items 2 and 3.
+"""int64 + vectorised Q-concavity
 
 This is a drop-in replacement for `convexity.Convexity.compute`, NOT a change to
 it. `convexity.py` stays exactly as published and remains the reference against
@@ -11,8 +11,7 @@ What changes, and why
    runs at Python speed. At the 128 px protocol each quadrant count is <= 2^14,
    so the four-fold product is <= 2^56 and fits exactly in int64.
    `assert_protocol_safe` enforces the bound rather than trusting it. This is a
-   PERFORMANCE change, not a correctness fix -- there was never an overflow;
-   see handoff sec 5.1.
+   PERFORMANCE change, not a correctness fix -- there was never an overflow.
 
 2. **The per-pixel mask loop becomes shifted array adds.** The reference walks
    the |det(r,s)| - 1 interior lattice points of the mask in Python, per pixel.
@@ -33,7 +32,7 @@ What changes, and why
    scales linearly in (p+q) while the mask work scales in p^2+q^2, so once the
    mask loop is fast it would become roughly half the total and would bend the
    measured cost curve away from the |r|^2 law. Left alone it would have
-   quietly degraded the paper's headline figure.
+   quietly degraded the headline accuracy-versus-cost figure.
 
 Exactness
 ---------
@@ -43,7 +42,7 @@ one true division. The reference divides Python ints, which is correctly rounded
 from the exact rational; this module divides float64s converted from int64.
 Where the operands are below 2^53 the two are identical, which covers every test
 image. At the 128 px protocol phi can reach 2^56, so the last ulp may differ.
-That is the lost exactness discussed in handoff sec 5.1, and it is irrelevant:
+That is the lost exactness, and it is irrelevant:
 the descriptor immediately divides by a denominator of comparable magnitude.
 `compare_to_reference` reports both the exact integer check and the scalar
 difference so this stays measured rather than assumed.
@@ -73,7 +72,7 @@ INT = np.int64
 
 
 def assert_protocol_safe(max_dim: int) -> None:
-    """Guard the int64 bound of handoff sec 7.4 item 2.
+    """Guard the int64 bound.
 
     The binding quantity is NOT phi (the product of the four quadrant counts)
     but the normalisation denominator raised to the fourth,
@@ -95,7 +94,7 @@ def assert_protocol_safe(max_dim: int) -> None:
     **N = 97**, so at the 128 px protocol the final division already works on a
     rounded denominator. That is harmless -- the descriptor immediately divides
     by a quantity of the same magnitude, and the relative error is one ulp --
-    and it is exactly the lost exactness described in handoff sec 5.1. It is
+    and it is exactly the lost exactness described above. It is
     also why the equality tests compare against an exact `Fraction` rather than
     demanding bit-identical floats.
     """
@@ -157,7 +156,7 @@ def mask_rows(v: tuple[int, int]) -> np.ndarray:
     That is what lets the sum be evaluated with a horizontal prefix sum: 2
     lookups per row instead of one per interior point. The number of rows is at
     most p+q+1, so the per-pixel cost drops from |r|^2-1 to ~2(p+q) --
-    Theta(mn(p+q)) instead of Theta(mn(p^2+q^2)). See handoff sec 3.1.2.
+    Theta(mn(p+q)) instead of Theta(mn(p^2+q^2)).
 
     2 * (number of rows) equals exactly the symmetric difference of the mask
     under a one-pixel step, i.e. the cost of the equivalent sliding-window
@@ -286,7 +285,7 @@ def compute(img: np.ndarray, obj_a=1, obj_b=0, vec=(1, 0), method: str = "points
     """E_F^{r,r_perp} for one binary image. Signature mirrors Convexity.compute.
 
     `method` is passed to `rotsat`; see METHODS. "rows" is the Theta(mn(p+q))
-    kernel of handoff sec 3.1.2 and should be preferred once measured.
+    kernel and should be preferred once measured.
     """
     f = np.asarray(img)
     assert_protocol_safe(max(f.shape))
@@ -353,7 +352,7 @@ def exact_q1(img: np.ndarray, obj_a=1, obj_b=0, vec=(1, 0)) -> Fraction:
 
 
 def operation_counts(v: tuple[int, int]) -> dict:
-    """Per-pixel operation counts for the two kernels -- the paper's cost model.
+    """Per-pixel operation counts for the two kernels -- the cost model.
 
     These are exact integers, not timings, and they are what Theta asserts.
     """

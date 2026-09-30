@@ -19,7 +19,7 @@ Reproduce IWCIA 2025's own 20 directions (expensive: ~800 s/shape):
         --dirs sint --workers 20 --out results/device_sint.csv
 
 Measurement runs that produce PUBLISHED timings should be pinned and run under
-the `performance` governor (handoff sec 7.2):
+the `performance` governor:
     sudo cpupower frequency-set -g performance
     numactl --cpunodebind=0 python scripts/run_pool.py ... --workers 10 --pinned
 """

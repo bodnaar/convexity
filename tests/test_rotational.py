@@ -1,6 +1,6 @@
-"""The rotational signature R_F^D -- handoff sec 3.3, sec 7.4 item 12.
+"""The rotational signature R_F^D
 
-Without this the paper's decisive experiment (test 0: does cost-aware
+Without this the decisive experiment (does cost-aware
 rotation-free beat the rotational shortcut at equal cost?) cannot be run at all.
 """
 
@@ -75,7 +75,7 @@ def test_rotational_values_are_finite_across_the_pool():
 
 def test_rotation_loss_is_measured_not_assumed():
     """Rotating by theta and back is not the identity on Z^2. Quantify it, so
-    R's limitation can be stated with a number (handoff sec 3.5)."""
+    R's limitation can be stated with a number."""
     loss = rotational.rotation_loss(_blob(), angles=(15.0, 30.0, 45.0))
     assert set(loss) == {15.0, 30.0, 45.0}
     assert all(v >= 0 for v in loss.values())
@@ -92,8 +92,8 @@ def test_a_rotation_that_empties_the_image_raises():
 # ---------------------------------------------------------------------------
 # The resampling noise floor -- scripts/diagnose_rotational.py step E.
 #
-# These guard the paper's stated MECHANISM for why R loses to S. If any of them
-# starts failing, the explanation in the paper is wrong, not merely the numbers.
+# These guard the stated MECHANISM for why R loses to S. If any of them
+# starts failing, the explanation is wrong, not merely the numbers.
 # ---------------------------------------------------------------------------
 
 def _square(n=128, s=90):
@@ -130,8 +130,8 @@ def test_R_manufactures_concavity_on_a_disc_but_not_on_a_square():
     sq = [rotational.rotational_value(_square(), d, "rows")[0] for d in pool]
     dc = [rotational.rotational_value(_disc(), d, "rows")[0] for d in pool]
     assert max(sq) == 0.0, "a rotated square should stay Q-convex"
-    assert max(dc) > 0.0, "if this is now zero the floor has gone -- re-check the paper"
-    assert max(dc) < 1e-3, f"floor grew to {max(dc):.2e}; the mechanism section quotes 1e-4"
+    assert max(dc) > 0.0, "if this is now zero the floor has gone -- re-check the explanation"
+    assert max(dc) < 1e-3, f"floor grew to {max(dc):.2e}; the documented mechanism quotes 1e-4"
 
 
 def test_the_floor_is_an_ADDITIVE_bias_not_symmetric_noise():
@@ -149,7 +149,7 @@ def test_the_floor_is_an_ADDITIVE_bias_not_symmetric_noise():
 
 
 def test_result_metadata_records_the_libraries_that_can_change_a_result():
-    """Family R is not reproducible across OpenCV builds (handoff sec 3.3.4):
+    """Family R is not reproducible across OpenCV builds:
     two machines agreed exactly on family S and differed in 39 of 48 family-R
     values. A table that does not name its cv2 build cannot be compared to
     another one later."""

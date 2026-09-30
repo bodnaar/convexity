@@ -28,13 +28,13 @@ With s = r_perp, the mask parallelogram spanned by r and s contains
 |det(r, s)| - 1 = p^2 + q^2 - 1 interior lattice points (Pick's theorem), and
 `rotsat` iterates exactly those points per pixel. Hence
 
-    T(r)  ~  A + B * (p^2 + q^2)                     [handoff sec. 3.1]
+    T(r)  ~  A + B * (p^2 + q^2)
 
 which fits IWCIA 2025 Table 1 with R^2 = 0.998 (MAPE 4.0%), against R^2 = 0.903
 (MAPE 25%) for the published O(mn (r1+s1)(|r2|+|s2|)) = O(mn (p+q)^2) bound.
 
 `COST_IWCIA` holds the coefficients fitted to their published table. Refit
-`A`/`B` on the target machine before using cost numbers in the paper -- see
+`A`/`B` on the target machine before quoting cost numbers -- see
 `scripts/fit_cost_law.py`.
 """
 
@@ -54,12 +54,12 @@ COST_IWCIA = (1.419, 0.5724)
 #
 # USE THESE, NOT THE `seconds` COLUMN OF A POOL RUN. A pool run has 20 workers
 # contending for memory bandwidth and L3, which inflates per-job times by ~3x
-# and unevenly. Handoff sec 7.2: bulk runs optimise throughput, published
+# and unevenly. Bulk runs optimise throughput; published
 # timings come from pinned single-process measurement runs. Pricing a direction
 # set from the fitted law is the only defensible number.
 #
 # The predictor differs by kernel because the cost model is a property of the
-# ALGORITHM (handoff sec 3.1.2): the point kernel is Theta(mn|r|^2), the rows
+# ALGORITHM: the point kernel is Theta(mn|r|^2), the rows
 # kernel Theta(mn(p+q)).
 COST_MODELS = {
     "published":   ("norm2", 1.41900, 0.572400),
@@ -232,13 +232,13 @@ def min_cost_maxgap(max_gap_deg: float, candidates: Sequence[Direction] | None =
                     model: str = "rows+numba") -> list[Direction]:
     """Cheapest direction set whose maximum angular gap is at most `max_gap_deg`.
 
-    THIS IS THE CONSTRUCTION THE PAPER USES. It supersedes `slot_set`.
+    THIS IS THE RECOMMENDED CONSTRUCTION. It supersedes `slot_set`.
 
     `slot_set` stated the problem the wrong way round: it fixed n equiangular
     slots and minimised cost within a tolerance of each. That lets neighbouring
     picks drift TOWARDS each other and open a hole elsewhere -- `slot9:±5°`
     produced an 18.4 degree maximum gap where equiangular S_9 has 10, and scored
-    64.0% where the same budget spent on coverage scores 73.0% (handoff 3.2.1).
+    64.0% where the same budget spent on coverage scores 73.0%.
     Accuracy is governed by the maximum gap, so the gap is the CONSTRAINT and
     cost is the OBJECTIVE:
 
@@ -253,8 +253,8 @@ def min_cost_maxgap(max_gap_deg: float, candidates: Sequence[Direction] | None =
     and anchors the cyclic wrap-around at 0/90 degrees.
 
     `model` names the cost model to minimise against -- see COST_MODELS. In
-    practice the CHOICE OF MODEL DOES NOT CHANGE THE SELECTED SET (handoff
-    3.1.3), so this argument matters for the reported price, not the answer.
+    practice the CHOICE OF MODEL DOES NOT CHANGE THE SELECTED SET, so this argument
+    matters for the reported price, not the answer.
     """
     cand = sorted(candidates if candidates is not None else pool(max_norm2=130),
                   key=lambda d: d.angle)
@@ -344,7 +344,7 @@ S_INT: list[Direction] = by_angle(
 )
 
 # Mean seconds per component reported in IWCIA 2025 Table 1, keyed by (p, q).
-# Used by scripts/fit_cost_law.py and as a calibration target (handoff sec 1.3).
+# Used by scripts/fit_cost_law.py and as a calibration target.
 IWCIA_TABLE1 = {
     (1, 0): 2.54, (10, 1): 60.90, (5, 1): 15.96, (10, 3): 65.21, (3, 1): 7.38,
     (9, 4): 56.92, (9, 5): 62.07, (8, 5): 51.25, (4, 3): 15.05, (8, 7): 64.07,
@@ -355,5 +355,5 @@ IWCIA_TABLE1 = {
 # Flat cost per component of the *rotational* signature, seconds, from
 # IWCIA 2025 sec 5.4: "the average time for calculating an element of any
 # rotational signature is 2.54s". Independent of direction -- this is the
-# frontier the cost-aware rotation-free sets must beat (handoff sec 3.3).
+# frontier the cost-aware rotation-free sets must beat.
 ROTATIONAL_SECONDS_PER_COMPONENT = 2.54

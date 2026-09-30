@@ -3,7 +3,7 @@
 MUST be imported before numpy, anywhere in the codebase. Setting these
 variables after numpy is imported has no effect.
 
-Rationale (handoff sec. 7.4 item 1): the experiment runs `Pool(20)` on a
+Rationale: the experiment runs `Pool(20)` on a
 20-physical-core machine with SMT disabled. If each worker also spawns its own
 BLAS thread pool the machine oversubscribes ~20x, which is slower than serial
 *and* makes every per-job timing meaningless. Timing is the result in this

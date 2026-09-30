@@ -58,7 +58,7 @@ def test_order_is_stable_across_loads():
 
 
 # ---------------------------------------------------------------------------
-# Preprocessing must match what produced the published numbers (handoff 9.1).
+# Preprocessing must match what produced the published numbers.
 # ---------------------------------------------------------------------------
 
 def test_binarise_is_a_fixed_threshold_and_never_inverts():

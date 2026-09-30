@@ -71,7 +71,7 @@ def test_prose_nearest_search_does_NOT_reproduce_s_int():
     """Guards the discrepancy documented in deg2vec_set: following IWCIA sec
     5.1's wording literally gives a different, larger set -- e.g. (5,4) rather
     than (4,3) at 38 degrees. If this ever starts passing, the docstring is
-    wrong and the protocol note in the paper needs revisiting."""
+    wrong and the protocol note needs revisiting."""
     box = D.pool(max_component=10)
     nearest = {min(box, key=lambda d: (abs(d.angle - a), d.norm2)) for a in range(90)}
     assert {(d.p, d.q) for d in nearest} != {(d.p, d.q) for d in D.S_INT}
@@ -79,7 +79,7 @@ def test_prose_nearest_search_does_NOT_reproduce_s_int():
 
 
 def test_cost_law_beats_the_published_bound_on_their_own_table():
-    """The central empirical claim of the paper, as a regression test."""
+    """The central empirical claim, as a regression test."""
     import numpy as np
 
     items = sorted(D.IWCIA_TABLE1.items())
@@ -132,7 +132,7 @@ def test_max_angular_gap_is_cyclic_on_0_90():
 
 
 # ---------------------------------------------------------------------------
-# min_cost_maxgap -- the construction the paper uses (handoff sec 3.2.1)
+# min_cost_maxgap -- the recommended construction
 # ---------------------------------------------------------------------------
 
 def test_maxgap_respects_the_constraint():
@@ -168,7 +168,7 @@ def test_maxgap_beats_slot_set_at_equal_coverage():
     """The reason slot_set was superseded: at the same coverage it costs more.
 
     slot9:+-5 deg yields an 18.4 deg gap for 0.0358 s; the DP reaches the same
-    coverage for less, with fewer directions (handoff sec 3.2.1).
+    coverage for less, with fewer directions.
     """
     slot = D.slot_set(9, 5.0)
     g = D.max_angular_gap(slot)
@@ -205,7 +205,7 @@ def test_cost_models_are_all_usable():
 
 
 def test_the_slot_construction_was_model_invariant_but_the_DP_IS_NOT():
-    """Corrects an over-claim. Handoff rev 9 sec 3.1.3 reported that the choice
+    """Corrects an over-claim. An earlier analysis reported that the choice
     of cost model never changes the selected set. That was measured on
     `slot_set`, where it is true -- each slot picks its own cheapest
     representative and, within a narrow angular window, every norm orders the
@@ -224,7 +224,7 @@ def test_the_slot_construction_was_model_invariant_but_the_DP_IS_NOT():
         a = [(d.p, d.q) for d in D.min_cost_maxgap(G, model="fast+numba")]
         b = [(d.p, d.q) for d in D.min_cost_maxgap(G, model="rows+numba")]
         differs = differs or a != b
-    assert differs, "if this now passes, re-examine the claim in handoff sec 3.1.3"
+    assert differs, "if this now passes, re-examine the model-invariance claim"
 
 
 def test_selecting_with_the_wrong_cost_model_stays_FEASIBLE():
@@ -232,8 +232,8 @@ def test_selecting_with_the_wrong_cost_model_stays_FEASIBLE():
 
     Optimising against the wrong cost model costs more, but never violates the
     coverage requirement -- so a set chosen for one implementation is always
-    usable on another, just not optimal there. That is what lets the paper state
-    one construction and report its price per implementation.
+    usable on another, just not optimal there. That is what lets one
+    construction be stated and its price reported per implementation.
     """
     for G in (6.0, 8.0, 10.0, 12.0, 15.0, 20.0):
         for model in ("fast+numba", "rows+numba"):
@@ -244,7 +244,7 @@ def test_selecting_with_the_wrong_cost_model_stays_FEASIBLE():
 
 def test_the_wrong_model_penalty_is_bounded():
     """Measured 2026-09-06: 0% at G in {8,15,20}, 5.9-24.4% at G in {6,10,12}.
-    A regression guard, and the number the paper should quote when it says the
+    A regression guard, and the number to quote when saying the
     selection is robust-but-not-invariant to the cost model."""
     worst = 0.0
     for G in (6.0, 8.0, 10.0, 12.0, 15.0, 20.0):

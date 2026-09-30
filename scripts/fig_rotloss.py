@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Digital rotation does not preserve Q-convexity -- figure and counts.
 
-    python scripts/fig_rotloss.py --out ../dgmm_article/fig/fig4_rotloss
+    python scripts/fig_rotloss.py --out fig4_rotloss
 
 Four convex synthetic shapes, whose Q-convexity is exactly 1 in every direction.
 The rotation-free signature confirms this: over all 64 directions of the pool it

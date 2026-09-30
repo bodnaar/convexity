@@ -13,8 +13,8 @@ classes with exactly `PER_CLASS` members are kept, which drops the strays.
 
 Resampling: nearest-neighbour. The image is binary and any interpolating
 filter would produce grey values that then need re-thresholding, which changes
-the concavity structure -- the same hazard as the pyramid re-binarisation of
-handoff sec 6 test 1. Nearest keeps it a binary operation. This choice is
+the concavity structure -- the same hazard as the pyramid re-binarisation.
+Nearest keeps it a binary operation. This choice is
 recorded in the results table metadata; see `qsig.store`.
 """
 
@@ -61,7 +61,7 @@ def _binarise(arr: np.ndarray) -> np.ndarray:
     Misk, Heart and HCircle at 20/20. That heuristic therefore INVERTED a fifth
     of the dataset, and it is the leading explanation for the +3.35 point
     reproduction gap on the full set against only -1.5 on Device, where just
-    2 of 200 images invert (handoff sec 9.1).
+    2 of 200 images invert.
 
     The fixed threshold is safe here and was checked, not assumed: every image
     is dark background plus a bright object, with value sets {0,255} (1346),
@@ -98,8 +98,8 @@ def _pad_square(bin_img: np.ndarray) -> np.ndarray:
     Also part of the published preprocessing. The descriptor itself is
     invariant to background padding (tests/test_descriptor.py), so this changes
     nothing for family S -- but family R rotates inside whatever canvas it is
-    given, so the canvas decides how much of the object clipping destroys
-    (handoff sec 3.3.3). Reproducing family R requires reproducing this.
+    given, so the canvas decides how much of the object clipping destroys.
+    Reproducing family R requires reproducing this.
     """
     h, w = bin_img.shape
     d = max(h, w)
@@ -166,8 +166,7 @@ def load_mpeg7(
 
 
 def protocol_metadata(long_side: int = LONG_SIDE) -> dict:
-    """Recorded alongside results so a cache can be attributed to a protocol
-    (handoff sec 7.4 item 10)."""
+    """Recorded alongside results so a cache can be attributed to a protocol."""
     return {
         "dataset": "MPEG-7 CE-Shape-1",
         "long_side": long_side,

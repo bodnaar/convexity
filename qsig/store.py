@@ -1,7 +1,7 @@
 """Append-only, resumable results table.
 
 One row per (shape_id, direction, resolution) job, holding both the descriptor
-value and its elapsed time (handoff sec 7.4 item 6). Every later question in the
+value and its elapsed time. Every later question in the
 paper -- which subset, how many, selected how, at what cost -- is a query
 against this table, so a run must survive a crash, a logout or a reboot without
 recomputing what it already has.
@@ -30,8 +30,8 @@ FIELDS = [
 # DESCRIPTORS, not two ways of computing one -- IWCIA 2025 Defs 3 and 4 -- so
 # they must never be mixed inside one signature.
 
-# `impl` is not bookkeeping: the cost CONSTANTS depend on the implementation
-# (handoff sec 3.1.1), so a table mixing "reference" and "fast" rows would fit a
+# `impl` is not bookkeeping: the cost CONSTANTS depend on the implementation,
+# so a table mixing "reference" and "fast" rows would fit a
 # meaningless cost law. Every row carries the tag from
 # qsig.descriptor.implementation_tag, e.g. "reference", "fast+numba".
 
@@ -55,8 +55,8 @@ def _git_commit(repo_dir: str = ".") -> str:
 def cpu_governor() -> str:
     """Read the scaling governor of cpu0, or 'unknown' off Linux.
 
-    Timings are the paper's result, so the governor must be recorded with them
-    (handoff sec 1.3). Set it to `performance` before any measurement run.
+    Timings are a reported result, so the governor must be recorded with them.
+    Set it to `performance` before any measurement run.
     """
     path = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
     try:
@@ -74,7 +74,7 @@ def library_versions() -> dict:
     by up to 3.3e-3 on values of order 0.1 -- because `cv2.warpAffine`
     resampling is not stable across OpenCV builds. A family-R table is therefore
     only comparable to another family-R table produced with the same cv2, and
-    without this field that is unknowable after the fact (handoff sec 3.3.4).
+    without this field that is unknowable after the fact.
     """
     out = {"numpy": "", "opencv": "", "pillow": "", "numba": ""}
     try:
@@ -157,7 +157,7 @@ class ResultStore:
 
     # Fields that define the PROTOCOL. If any of these differs from what a
     # previous run recorded, the existing rows are not comparable and the
-    # append-and-resume path must not be taken (handoff sec 7.4).
+    # append-and-resume path must not be taken.
     PROTOCOL_FIELDS = (
         "binarise", "canvas", "resample", "long_side", "impl", "family",
         "rot_protocol", "rot_expand", "subset",

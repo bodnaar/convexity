@@ -1,7 +1,7 @@
 """Tests that touch the reference implementation `convexity.Convexity`.
 
-These are the guardrails for the eventual Numba/int64 rewrite (handoff sec 7.4
-item 3): whatever replaces the inner loop must reproduce these values exactly.
+These are the guardrails for the eventual Numba/int64 rewrite:
+whatever replaces the inner loop must reproduce these values exactly.
 """
 
 import os
@@ -101,7 +101,7 @@ def test_E_is_invariant_to_background_padding():
     `expand=True` from `expand=False` in qsig.rotational is therefore the object
     pixels that clipping DESTROYS -- not the array shape.
 
-    An earlier revision of the handoff conjectured an angle-dependent
+    An earlier hypothesis was an angle-dependent
     normalisation denominator under canvas expansion. This test is why that
     conjecture was withdrawn.
     """

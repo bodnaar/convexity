@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Timing calibration against IWCIA 2025 Table 1 -- handoff sec 1.3, sec 7.4 item 5.
+"""Timing calibration against IWCIA 2025 Table 1
 
 The question this answers has changed since the first version, and the change
 matters. Reproducing two of their published seconds is NOT the goal, because a
@@ -8,7 +8,7 @@ software stack as much as of the algorithm. The goal is:
 
     Does T(r) = A + B*|r|^2 still hold on THIS machine, and what are A and B?
 
-The functional form is the paper's proposition (handoff sec 3.1) and it is
+The functional form is the cost-law proposition and it is
 implementation-independent. The constants are not, and are not claimed to be.
 So this script fits the law over several directions rather than checking two
 seconds, and reports the published values alongside as context.
@@ -304,7 +304,7 @@ def main():
     print(f"  this machine  {spread:6.2f}x   ({dirs[-1].p},{dirs[-1].q}) vs ({dirs[0].p},{dirs[0].q})")
     print(f"  IWCIA Table 1 {pub_spread:6.2f}x   (10,3) vs (1,0)")
     print("  cost-aware selection is worth roughly the spread, so this is the number")
-    print("  the paper's saving scales with -- not the published one.")
+    print("  the saving scales with -- not the published one.")
 
     print()
     print(f"VERDICT: best-fitting cost model on this machine for impl={tag}:")
@@ -318,7 +318,7 @@ def main():
     print("         The CONSTANTS never transfer between implementations or software")
     print("         stacks; only the functional form does. Report this machine's own")
     print("         measurements with the stack printed above, and never quote IWCIA")
-    print("         Table 1 seconds alongside accuracies measured here (handoff 3.1.1).")
+    print("         Table 1 seconds alongside accuracies measured here.")
 
 
 if __name__ == "__main__":

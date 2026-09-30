@@ -81,7 +81,7 @@ tag, and `store.py` refuses to resume a table under a different protocol.
 These are *different descriptors*, not two ways of computing one. Family R also
 has two protocols: `iwcia2025` reproduces the published baseline including its
 rounded rotation angle and its rotation centre, and `exact` is the repaired
-descriptor. Comparisons in the paper use `exact`, so the paper beats a fixed
+descriptor. Comparisons use `exact`, so results are measured against a fixed
 baseline rather than a broken one.
 
 ## Running it

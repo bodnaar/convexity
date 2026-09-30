@@ -1,4 +1,4 @@
-"""The ROTATIONAL Q-concavity signature R_F^D -- handoff sec 3.3, sec 7.4 item 12.
+"""The ROTATIONAL Q-concavity signature R_F^D
 
 IWCIA 2025 defines two descriptors, and until now only one of them existed in
 this codebase:
@@ -13,12 +13,12 @@ this codebase:
          rotating a digital image is not a bijection on Z^2: it resamples, and
          information is lost.
 
-R is the cheap competitor the paper's accuracy-versus-cost curve has to beat
-(handoff sec 3.3). Their Table 2 gives R's accuracies but its timings are 2016
+R is the cheap competitor the accuracy-versus-cost curve has to beat.
+Their Table 2 gives R's accuracies but its timings are 2016
 stack seconds, so R must be re-measured in the same kernel as everything else
 before any comparison is meaningful. That is what this module is for.
 
-Rotating the canvas -- a decision worth stating in the paper
+Rotating the canvas -- a decision worth stating
 ------------------------------------------------------------
 IWCIA 2025 sec 5.3 says only that they "calculated the rotation matrix and then
 performed the affine transformation with linear interpolation". It does not say
@@ -38,9 +38,8 @@ recorded with the results so a run can be attributed.
 Re-binarisation
 ---------------
 Linear interpolation of a binary image produces grey values, which must be
-thresholded back. That is the same hazard as the pyramid re-binarisation of
-handoff sec 6 test 1, and it is isolated in one function here so the choice can
-be varied without touching anything else.
+thresholded back. That is the same hazard as the pyramid re-binarisation, and it is isolated in one function here so
+the choice can be varied without touching anything else.
 """
 
 from __future__ import annotations
@@ -180,8 +179,8 @@ def rotation_loss(img: np.ndarray, angles=(15.0, 30.0, 45.0), expand: bool = Tru
 
     Rotating by theta and back should be the identity but is not: resampling and
     re-binarisation move pixels. Reports the symmetric difference as a fraction
-    of the object, per angle. Useful for handoff sec 3.5 (measured rotation
-    robustness) and for stating R's limitation with a number rather than a
+    of the object, per angle. Useful for measuring rotation
+    robustness and for stating R's limitation with a number rather than a
     hand-wave.
     """
     base = (np.asarray(img) == OBJECT).astype(np.uint8)

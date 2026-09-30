@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Second-benchmark analysis: classical baseline vs the Q-concavity signature,
-mirroring classical_baseline_2026-09-13.md's table on a new dataset.
+mirroring the MPEG-7 classical-baseline table on a new dataset.
 
 Reads the two tables `classical_features.py` and `run_pool.py` produce and
 prints the comparison: classical alone, classical + mu, classical + all 64
@@ -14,10 +14,9 @@ subtracting mu; F(mu) vs mean F of the other components).
         --signature results/animal2000_n130_rows.csv
 
 1NN leave-one-out, per-feature z-scored plain L2 throughout -- same protocol
-as classical_baseline_2026-09-13.md. Greedy-12 selection here is the same
-FIT=EVAL protocol as that doc (selects and scores on the same shapes): a
-pre-existing, known-optimistic caveat (paper_a_plan_2026-09-13.md sec 2), not
-something this script fixes.
+as the MPEG-7 baseline. Greedy-12 selection here is the same FIT=EVAL
+protocol (selects and scores on the same shapes): a pre-existing,
+known-optimistic caveat, not something this script fixes.
 """
 
 import argparse

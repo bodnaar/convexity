@@ -26,7 +26,7 @@ def test_d_C_is_zero_on_shifts_and_reversals():
     """IWCIA 2025 Fig 6: 'bat-1' is a rotated variant of 'bat-16' so its
     signature is SHIFTED; 'dog-12' is a reflected variant of 'dog-13' so its
     signature is REVERSED. d_C must be ~0 in both cases -- the two free sanity
-    checks of handoff sec 7.4 item 8."""
+    checks."""
     rng = np.random.default_rng(0)
     u = rng.random(20)
     for i in range(20):

@@ -26,7 +26,7 @@ Use `qsig.directions.slot_set` instead: it keeps the equiangular schedule and
 chooses the cheapest lattice representative of each slot, so d_C remains as
 well-founded as it is for `S_int`, and the comparison is like for like. Both
 constructions are implemented so the difference can be measured rather than
-asserted, but the paper's headline curve should use `slot_set`.
+asserted, but the headline curve should use `slot_set`.
 """
 
 from __future__ import annotations

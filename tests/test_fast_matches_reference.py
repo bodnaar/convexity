@@ -1,4 +1,4 @@
-"""The single most important test in the project -- handoff sec 7.4 item 3.
+"""The single most important test in the project
 
 The refactor changes the numeric type AND the execution path at once. Without an
 equality test against the published implementation, a silent discrepancy would
@@ -209,7 +209,7 @@ def test_elementwise_quotients_are_bit_identical():
 
 
 # ---------------------------------------------------------------------------
-# The Theta(mn(p+q)) row-prefix-sum kernel -- handoff sec 3.1.2
+# The Theta(mn(p+q)) row-prefix-sum kernel
 # ---------------------------------------------------------------------------
 
 def test_every_mask_row_is_contiguous():
@@ -217,8 +217,8 @@ def test_every_mask_row_is_contiguous():
 
     The mask is the interior of a convex lattice parallelogram, so each
     horizontal slice should be one unbroken run. `mask_rows` raises if it is
-    not; this asserts it never has to, over a pool far wider than the paper
-    uses. If this ever fails for some direction, that direction must fall back
+    not; this asserts it never has to, over a pool far wider than the one in
+    use. If this ever fails for some direction, that direction must fall back
     to method='points' rather than silently producing a wrong sum.
     """
     for d in D.pool(max_norm2=200):

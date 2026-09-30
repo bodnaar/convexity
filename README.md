@@ -1,6 +1,6 @@
 # Q-convexity shape descriptors — general direction pairs
 
-**Branch `qsig-pairs`.** Journal-paper work, branched from `qsig-harness`
+**Branch `qsig-pairs`.** Research on general direction pairs, branched from `qsig-harness`
 (the DGMM 2027 harness, tagged `dgmm2027-submission`). Everything documented
 below still applies; this section says what is new here.
 
@@ -8,7 +8,7 @@ For the repository layout and the other branches, see the README on `main`.
 
 ## What this branch is for
 
-Two threads, both aimed at a single-author journal paper:
+Two threads:
 
 1. **`E^{r,s}` for an arbitrary pair of lattice directions** — `qsig/pairs.py`.
    IWCIA 2025 already writes the descriptor as `E^{r,s}` and states that the
@@ -146,7 +146,7 @@ tag, and `store.py` refuses to resume a table under a different protocol.
 These are *different descriptors*, not two ways of computing one. Family R also
 has two protocols: `iwcia2025` reproduces the published baseline including its
 rounded rotation angle and its rotation centre, and `exact` is the repaired
-descriptor. Comparisons in the paper use `exact`, so the paper beats a fixed
+descriptor. Comparisons use `exact`, so results are measured against a fixed
 baseline rather than a broken one.
 
 ## Running it

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Does the descriptor need a 90-degree aperture? -- the aperture sweep.
 
-    python scripts/aperture_sweep.py --data ../dgmm_article/MPEG7dataset.zip \
-        --out ../journal_results/aperture_sweep_bis0_bis45_n1400.csv
+    python scripts/aperture_sweep.py --data MPEG7dataset.zip \
+        --out aperture_sweep_bis0_bis45_n1400.csv
 
 An orthogonal pair `(r, r_perp)` has one free parameter, its orientation. A
 general pair `(r, s)` has two: orientation and APERTURE, the angle between the

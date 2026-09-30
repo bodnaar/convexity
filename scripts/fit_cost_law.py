@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fit the cost law and compare it against the published complexity bound.
 
-This is a RESULT of the paper, not a sanity check (handoff sec 7.4 item 11).
+This is a RESULT, not a sanity check.
 It produces the coefficients for T(r) = A + B*|r|^2 on this machine, and the
 side-by-side fit quality against the O(mn (r1+r2)^2) bound of [IWCIA 2025,
 Thm 1].
@@ -12,7 +12,7 @@ Two modes:
       Refit on measured timings from a pool run.
 
   --published
-      Refit on IWCIA 2025 Table 1, reproducing the handoff sec 3.1 numbers:
+      Refit on IWCIA 2025 Table 1, reproducing the published numbers:
       |r|^2      R^2 = 0.998, MAPE  4.0%
       (r1+r2)^2  R^2 = 0.903, MAPE 25.3%
 """

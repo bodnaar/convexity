@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Accuracy against computation cost -- the paper's headline figure, as a table.
+"""Accuracy against computation cost -- the headline figure, as a table.
 
     python scripts/evaluate.py --data ../MPEG7dataset.zip --subset device \
         --table results/device_n130_rows.csv \
@@ -7,7 +7,7 @@
 
 COSTS ARE MODELLED, NOT MEASURED FROM THE TABLE. A pool run has 20 workers
 contending for memory bandwidth and L3, which inflates per-job times by roughly
-3x and unevenly across directions; handoff sec 7.2 separates bulk runs from
+3x and unevenly across directions; bulk runs are kept separate from
 measurement runs for exactly this reason. Prices come from
 `qsig.directions.COST_MODELS`, fitted on pinned single-process runs. Pass
 `--show-bulk` to see the contaminated numbers alongside, for diagnosis only.
@@ -19,8 +19,8 @@ the full 1400-shape set (50.2 vs 53.6). IWCIA 2025 used d_C throughout and never
 reported the control.
 
 If the table contains family R rows (rotational signature), they are evaluated
-and printed alongside S automatically -- that comparison is handoff sec 6's
-test 0, the experiment the paper's framing turns on.
+and printed alongside S automatically -- that comparison is the key test of
+whether cost-aware rotation-free selection beats the rotational shortcut.
 """
 
 import argparse
@@ -37,8 +37,7 @@ from scripts.run_pool import resolve_dirs  # noqa: E402
 # IWCIA 2025 Table 2. R = rotational, S = rotation-free. S_18/S_9/S_6/S_3 were
 # obtained by LINEAR INTERPOLATION of Q-concavity values between neighbouring
 # S_int angles, so their cost is undefined and their accuracies are
-# approximations -- recomputing them exactly moves them by up to 4.5 points
-# (handoff sec 3.2.1).
+# approximations -- recomputing them exactly moves them by up to 4.5 points.
 PUBLISHED = {
     "S_int": {"n": 20, "R_all": 42.57, "R_dev": 71.5, "S_all": 46.86, "S_dev": 75.0},
     "S_18":  {"n": 18, "R_all": 41.43, "R_dev": 67.0, "S_all": 48.86, "S_dev": 71.0},
@@ -112,8 +111,8 @@ def main():
 
     if "R" not in families:
         print("\nNOTE: no family R rows in these tables, so the rotational baseline is")
-        print("      absent and handoff sec 6 test 0 cannot be decided. Produce it with")
-        print("      run_pool.py --family R --dirs <same set>.")
+        print("      absent and the rotation-free vs rotational comparison cannot be")
+        print("      decided. Produce it with run_pool.py --family R --dirs <same set>.")
 
     key = "all" if args.subset == "all" else "dev"
     print(f"\npublished IWCIA 2025 Table 2 ({args.subset}), for context only --")
@@ -123,7 +122,7 @@ def main():
     for name, v in PUBLISHED.items():
         print(f"{name:>10s} {v['n']:3d} {v[f'R_{key}']:6.2f}% {v[f'S_{key}']:6.2f}%")
     print("\nS_18/S_9/S_6/S_3 above were linearly interpolated by their authors; the")
-    print("exact recomputation differs by up to 4.5 points (handoff sec 3.2.1).")
+    print("exact recomputation differs by up to 4.5 points.")
 
 
 if __name__ == "__main__":

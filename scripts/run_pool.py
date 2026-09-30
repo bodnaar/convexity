@@ -19,7 +19,7 @@ Reproduce IWCIA 2025's own 20 directions (expensive: ~800 s/shape):
         --dirs sint --workers 20 --out results/device_sint.csv
 
 Measurement runs that produce PUBLISHED timings should be pinned and run under
-the `performance` governor (handoff sec 7.2):
+the `performance` governor:
     sudo cpupower frequency-set -g performance
     numactl --cpunodebind=0 python scripts/run_pool.py ... --workers 10 --pinned
 """
@@ -109,7 +109,7 @@ def main():
     ap.add_argument("--dataset", choices=("mpeg7", "animal2000", "swedishleaves"), default="mpeg7",
                     help="mpeg7 = qsig.dataset.load_mpeg7 (default, unchanged behaviour); "
                          "animal2000/swedishleaves = qsig.skeview.load_skeview, the second "
-                         "benchmark from second_benchmark_2026-09-13.md. These have no Device "
+                         "benchmark. These have no Device "
                          "subset -- --subset must be 'all' for them.")
     ap.add_argument("--subset", choices=("device", "all"), default="device")
     ap.add_argument("--long-side", type=int, default=dataset.LONG_SIDE)

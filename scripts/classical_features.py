@@ -11,9 +11,7 @@ second-benchmark replication (the Q-concavity signature half is
 
 Append-only and resumable, same spirit as `run_pool.py` / `qsig.store` but a
 different schema: one row per SHAPE, not per (shape, direction), since
-classical descriptors don't depend on a direction set. See
-`journal_paper/second_benchmark_2026-09-13.md` and
-`journal_paper/second_benchmark_results_2026-09-13.md` for why this exists.
+classical descriptors don't depend on a direction set.
 """
 
 import argparse

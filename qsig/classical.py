@@ -1,15 +1,14 @@
-"""Classical shape descriptors -- the baseline that reframed the paper.
+"""Classical shape descriptors -- a baseline for the Q-concavity signature.
 
-Specified in journal_paper/paper_a_plan_2026-09-13.md sec 3: convex-hull area
+Features: convex-hull area
 ratio, circularity, Hu moment invariants 1-7. Computed on the same
 preprocessed binary image (`qsig.dataset.Shape.img`) as the Q-concavity
 signature, so both feature families see identical shapes.
 
-OPEN QUESTION, flagged not resolved: the original `~/work/classical.py` /
-`mu.py` scripts that produced classical_baseline_2026-09-13.md's numbers are
+OPEN QUESTION, flagged not resolved: the original scripts that produced the earlier baseline numbers are
 outside this repository and were not available when this module was written.
 This is a from-the-spec reimplementation. Recomputing full MPEG-7 through it
-reproduces the two signature-only rows of that table EXACTLY (mu alone
+reproduces the two signature-only rows of the earlier table EXACTLY (mu alone
 20.64%, all-64-raw 51.43%) and the classical-descriptor rows to within ~1.3
 points (73.07 vs 73.71 for the 4-dim classical baseline) -- close enough to
 trust, not identical. The Hu log-transform convention below is the leading

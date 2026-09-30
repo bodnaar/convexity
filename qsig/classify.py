@@ -61,9 +61,9 @@ def measured_cost(table: dict, shapes, dirs, statistic: str = "median",
     """Seconds per signature as RECORDED IN THE TABLE. Usually the wrong number.
 
     A pool run has 20 workers contending for memory bandwidth and L3, which
-    inflates per-job times by roughly 3x and unevenly across directions. Handoff
-    sec 7.2: bulk runs optimise throughput, published timings come from pinned
-    single-process measurement runs. For any cost quoted in the paper use
+    inflates per-job times by roughly 3x and unevenly across directions. Bulk
+    runs optimise throughput; published timings come from pinned
+    single-process measurement runs. For any cost quoted in a publication use
     `qsig.directions.cost_of`, which prices from the fitted law.
 
     Kept only for diagnosing a run against its own model.

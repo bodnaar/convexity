@@ -1,7 +1,7 @@
 """One Q-concavity value for one (shape, direction) pair.
 
 Two implementations are selectable, and which one produced a number is part of
-the number (handoff sec 3.1.1):
+the number:
 
   "reference"  convexity.Convexity, exactly as published. Object dtype, the
                per-pixel interior-point loop in Python. This is the ground
@@ -36,8 +36,8 @@ from .directions import Direction
 
 IMPLEMENTATIONS = ("reference", "fast", "rows")
 
-# "rows" is qsig.fast with the Theta(mn(p+q)) prefix-sum kernel (handoff sec
-# 3.1.2) instead of the Theta(mn|r|^2) point kernel. Same numbers, different
+# "rows" is qsig.fast with the Theta(mn(p+q)) prefix-sum kernel instead of the
+# Theta(mn|r|^2) point kernel. Same numbers, different
 # cost model -- which is the whole point, so it gets its own impl tag rather
 # than hiding behind a keyword argument.
 _METHOD = {"fast": "points", "rows": "rows"}

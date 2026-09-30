@@ -1,11 +1,10 @@
 """Loader for the skeview shape catalogue's ground-truth `.mat` masks.
 
 Source: https://github.com/cong-yang/skeview -- "Kimia216 ... selected from
-the MPEG7 dataset" is what disqualified Kimia (second_benchmark_2026-09-13.md).
+the MPEG7 dataset" is what disqualified Kimia.
 Animal2000 and SwedishLeaves come from the same catalogue and were checked
 separately: no shared images with MPEG-7 found (spot-checked on the two
-classes -- bird, butterfly -- whose NAME also appears in MPEG-7; see
-second_benchmark_results_2026-09-13.md sec 2).
+classes -- bird, butterfly -- whose NAME also appears in MPEG-7).
 
 Mask format, reverse-engineered and verified empirically (not documented
 upstream): each `<stem>.mat` holds a MATLAB cell array under the key
@@ -60,7 +59,7 @@ CLASS_EXTRACTORS = {
 }
 
 # Expected (n_shapes, n_classes, per_class), for a loud failure if the archive
-# doesn't match what second_benchmark_2026-09-13.md recorded.
+# doesn't match the dataset sizes recorded earlier.
 EXPECTED_SHAPE = {
     "animal2000": (2000, 20, 100),
     "swedishleaves": (1125, 15, 75),

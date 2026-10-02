@@ -1,0 +1,5 @@
+data/
+tab/
+fig/
+*.csv
+__pycache__/

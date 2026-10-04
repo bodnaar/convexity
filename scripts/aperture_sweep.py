@@ -27,7 +27,7 @@ aperture and orientation varied together and the run was worthless.
 COST UNITS -- READ THIS BEFORE QUOTING A NUMBER
 -----------------------------------------------
 `|det(r,s)|` is the cost variable of the POINT kernel. The row-prefix kernel,
-which is what the papers actually use, costs
+which is what the experiments use, costs
 `min(|r_0|+|s_0|, |r_1|+|s_1|)` -- the parallelogram's extent along the cheaper
 axis. The two disagree sharply: the pair (7,-6),(6,-5) has `|det| = 1` but row
 cost 11. Cost claims about the kernel in use must be in row units.

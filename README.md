@@ -1,7 +1,7 @@
 # Q-convexity shape descriptors — general direction pairs
 
 **Branch `qsig-pairs`.** Research on general direction pairs, branched from `qsig-harness`
-(the DGMM 2027 harness, tagged `dgmm2027-submission`). Everything documented
+(the earlier experiment harness, tagged `dgmm2027-submission`). Everything documented
 below still applies; this section says what is new here.
 
 For the repository layout and the other branches, see the README on `main`.
@@ -31,7 +31,7 @@ passes instead, one per cone, and differs in exactly two places:
 - **The mask** becomes the strict interior of the fundamental parallelogram of
   the sublattice `<r, s>`. For a primitive pair, Pick's theorem gives
   `|det(r, s)| - 1` interior points, so the direct evaluation costs
-  `Theta(mn |det(r, s)|)` — the conference paper's `Theta(mn(p^2+q^2))` is the
+  `Theta(mn |det(r, s)|)` — the orthogonal `Theta(mn(p^2+q^2))` is the
   orthogonal special case, since `|det(r, r_perp)| = p^2 + q^2`.
 - **The traversal order.** A raster scan is a valid recurrence only when both
   steps point up-left. Two of the four cones of a non-orthogonal pair are
@@ -167,7 +167,7 @@ Results tables and the MPEG-7 archive are **not vendored** (see
 - **Quadrants are CLOSED.** They include the row and the column through `P`.
   A single boundary pixel on the far side of that row is enough to occupy a
   quadrant. This is the mechanism behind family R's resampling noise floor.
-- **The code computes and stores Q-CONCAVITY (`E`); the papers report
+- **The code computes and stores Q-CONCAVITY (`E`), not
   Q-convexity.** Check the convention before quoting any stored number.
 - **Never report a mean relative error on this descriptor.** Its informative
   range approaches zero, so near-Q-convex shapes (`E ~ 1e-6`) produce

@@ -223,4 +223,4 @@ def test_the_symmetry_point_centre_makes_quarter_turns_exact():
             m2 = cv2.getRotationMatrix2D((n / 2, n / 2), deg, 1)
             theirs = cv2.warpAffine(a, m2, (n, n), None, cv2.INTER_NEAREST,
                                     cv2.BORDER_CONSTANT, 0)
-            assert not np.array_equal(theirs, ref), "if this passes, re-check sec 3.3.5"
+            assert not np.array_equal(theirs, ref), "if this passes, re-check the rotation convention"

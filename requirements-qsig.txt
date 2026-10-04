@@ -1,4 +1,4 @@
-# Extra dependencies for the qsig experiment layer (DGMM 2027).
+# Extra dependencies for the qsig experiment layer.
 # The published requirements.txt pins the environment the DGCI 2019 / IWCIA 2025
 # results were produced in; install it first, in a venv, so the execution server
 # and this machine agree:

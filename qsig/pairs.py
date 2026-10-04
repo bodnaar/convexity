@@ -42,7 +42,7 @@ parallelogram has exactly 4 boundary lattice points and, by Pick's theorem,
 
 interior points. Adding `P` gives `|det(r, s)|` representatives -- exactly the
 index, as required. **So the cost of one evaluation is Theta(mn |det(r, s)|),**
-which is the cost law of the conference paper with `|det(r, r_perp)| = p^2 + q^2`
+which is the orthogonal cost law Theta(mn(p^2+q^2)) with `|det(r, r_perp)| = p^2 + q^2`
 as the orthogonal special case. Primitivity of BOTH directions is what makes
 the count exact, and it is enforced below.
 
@@ -59,7 +59,7 @@ answered by measurement rather than argued. Until it is answered, treat
 Conventions, both inherited unchanged
 -------------------------------------
 - Quadrants are CLOSED: they include the lines through P parallel to r and s.
-- This returns Q-CONCAVITY (`E`). The papers report Q-convexity.
+- This returns Q-CONCAVITY (`E`), not Q-convexity.
 """
 
 from __future__ import annotations

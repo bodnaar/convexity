@@ -159,7 +159,7 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
 
-# --- qsig (DGMM 2027) ---
+# --- qsig ---
 # Results tables are regenerated; a multi-day pool run is large and machine-specific.
 results/
 *.meta.json

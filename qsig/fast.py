@@ -25,7 +25,7 @@ What changes, and why
        n0(x,y) = n0((x,y)-s) + n0((x,y)-r) - n0((x,y)-(s+r)) + g(x,y)
    is a genuine sequential 2D dependency and cannot be vectorised. numba is
    optional: without it a plain Python loop runs, which is still far faster than
-   the reference because item 2 removed the inner loop. `HAVE_NUMBA` reports
+   the reference because the int64 rewrite removed the inner loop. `HAVE_NUMBA` reports
    which path is active, and it is recorded with the results.
 
 4. **calcH is vectorised too.** It is ~1% of the reference's runtime, but it
@@ -331,7 +331,7 @@ def compute(img: np.ndarray, obj_a=1, obj_b=0, vec=(1, 0), method: str = "points
     # opposing pairs are (q1, q4) and (q2, q3). See qsig.pairs.compute for the
     # normalisation argument: phi_D <= norm_part^2 / 4, factor 4, not 256.
     # ADDITIVE ONLY -- every pre-existing key above is untouched, and the
-    # dgmm2027-submission tag preserves the state this file was submitted in.
+    # dgmm2027-submission tag preserves the earlier state of this file.
     phi_d = (q1 * q4 + q2 * q3) * b.astype(INT)
     card_f_dash_d = int(np.count_nonzero(phi_d))
     denom_d = np.power(norm_part, 2).astype(np.float64)

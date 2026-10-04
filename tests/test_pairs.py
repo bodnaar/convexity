@@ -92,7 +92,7 @@ def test_points_and_rows_agree_on_general_pairs():
 # --------------------------------------------------------------------------
 
 def test_det_generalises_the_norm2_cost_variable():
-    """|det(r, r_perp)| = p^2 + q^2, the conference paper's cost variable."""
+    """|det(r, r_perp)| = p^2 + q^2, the cost variable of the orthogonal case."""
     for d in POOL:
         assert pairs.det(d.vec, pairs.perp(d.vec)) == d.norm2
 
@@ -126,7 +126,7 @@ def test_mask_rows_are_contiguous_for_every_pair():
 def test_row_count_is_bounded_by_the_parallelogram_row_extent():
     """rows <= |r_0| + |s_0| + 1, i.e. the kernel is Theta(mn(|r_0|+|s_0|)).
 
-    Reduces to Theta(mn(p+q)) when s = r_perp, which is the conference paper's
+    Reduces to Theta(mn(p+q)) when s = r_perp, which is the orthogonal case's
     row-prefix bound.
     """
     for r, s in itertools.islice(

@@ -3,3 +3,9 @@ tab/
 fig/
 *.csv
 __pycache__/
+# generated results
+fourier_results.json
+fourier_variants.json
+classdisjoint_fourier.json
+count_results.json
+overhead_phiD.json

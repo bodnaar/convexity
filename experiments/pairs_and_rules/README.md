@@ -40,6 +40,15 @@ next to the scripts. Extraction is resumable.
 5. Tables and figure data: `rfcheck.py` first, then `maketables.py`,
    `make_tab_replacement.py`, `make_tab_headline.py` (LaTeX into `./tab`) and
    `makefigdata.py` (pgfplots `.dat` into `./fig`).
+6. External reference descriptor (Fourier descriptors, FD): `extract_fourier.py`
+   (writes `<dataset>_fourier.csv` from the same preprocessed images), then
+   `fourier_test.py`, `fourier_variants.py` and `classdisjoint_fourier.py`
+   (each accepts dataset names, e.g. `MPEG-7`, to run one dataset at a time),
+   then `make_tab_fourier.py` (LaTeX into `./tab`).
+7. Direction choice versus count: `make_tab_count.py` (`tab_count.tex` and
+   `count_results.json`).
+8. Timing of the second rule (on the timing machine, pinned, single-threaded;
+   see the script's docstring): `overhead_phiD.py` (`overhead_phiD.json`).
 
 `extract_mpeg7_overlap.py` produces the MPEG-7 subset used for the
 Animal2000 provenance spot-check. `greedy_fast.py` is a helper for greedy
@@ -63,3 +72,11 @@ forward selection.
   columns of `tab_matched`, which are transcribed from the output of
   `disjmeasure.py`, `disjdim.py` and `disjhead.py`.
 - `import qsig.threadguard` (timing runs only) must come before `numpy`.
+- Fourier descriptors: centroid distance of the largest external contour,
+  resampled to 128 points equally spaced in arc length, `|F_m|/|F_0|` for
+  `m = 1..12` (primary setting, fixed in advance; 8, 16 and 32 are robustness
+  checks; `fourier_variants.py` also tests the boundary-mean centroid and the
+  raw traced contour). Zhang & Lu, J. Vis. Commun. Image Represent. 14(1),
+  2003, doi:10.1016/S1047-3203(03)00003-8.
+- The analysis scripts need `scikit-learn` and `scipy` in addition to the
+  `qsig` requirements; the extraction scripts need `opencv-python`.

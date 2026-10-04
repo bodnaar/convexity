@@ -67,12 +67,11 @@ def tab_variants():
 
 def tab_classdisjoint_fd():
     R = json.load(open(os.path.join(H, "classdisjoint_fourier.json")))
-    band = {"narrow": "narrow, $11$--$27^\\circ$", "wide": "wide, $53$--$79^\\circ$",
-            "orthog": "orthogonal, $90^\\circ$"}
-    b = ["\\begin{tabular}{@{}llcrcccc@{}}", "\\toprule",
+    band = {"narrow": "narrow", "wide": "wide", "orthog": "orthogonal"}
+    b = ["\\setlength{\\tabcolsep}{3pt}", "\\begin{tabular}{@{}llcrcccc@{}}", "\\toprule",
          " & & \\multicolumn{4}{c}{classical baseline} & \\multicolumn{2}{c}{classical $+$ FD baseline} \\\\",
          "\\cmidrule(lr){3-6}\\cmidrule(lr){7-8}",
-         "dataset & aperture band & feature set selected & mean & range & wins & mean & wins \\\\", "\\midrule"]
+         "dataset & band & selected & mean & range & wins & mean & wins \\\\", "\\midrule"]
     for i, (key, show) in enumerate(DS):
         for j, bd in enumerate(("narrow", "wide", "orthog")):
             c, f = R[f"{key}|{bd}"]["classical"], R[f"{key}|{bd}"]["classical+FD"]

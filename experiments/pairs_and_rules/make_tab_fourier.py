@@ -28,14 +28,16 @@ def tab_fourier():
             ("cl+FD", "classical $+$ FD", 0, None),
             ("cl+FD+phi12", "$+\\,\\varphi$ ($k{=}12$)", 12, "cl+FD+phi12|cl+FD"),
             ("cl+FD+both6", "$+\\,\\varphi,\\varphi_D$ ($k{=}6$)", 12, "cl+FD+both6|cl+FD")]
-    b = ["\\begin{tabular}{@{}llrrcrr@{}}", "\\toprule",
-         "dataset & feature set & cols & 1NN & $\\Delta$1NN $[95\\%]$ & LDA & RF \\\\", "\\midrule"]
+    b = ["\\begin{tabular}{@{}llrrccrr@{}}", "\\toprule",
+         "dataset & feature set & cols & 1NN & $\\Delta$1NN $[95\\%]$ & $\\Delta_{\\varphi}$1NN $[95\\%]$ & LDA & RF \\\\", "\\midrule"]
     for i, (key, show) in enumerate(DS):
         r = R[key]["M=12"]
         for j, (arm, lbl, cols, test) in enumerate(rows):
             a = r["acc"][arm]
             d = iv(r["tests"][test]) if test else ""
-            b.append(f"{show if j == 0 else ''} & {lbl} & {cols} & {a['1nn']:.2f} & {d} & {a['lda']:.2f} & {a['rf']:.2f} \\\\")
+            # second comparison: two rules (k=6) against phi alone (k=12), same 12 columns
+            d2 = iv(r["tests"]["cl+FD+both6|cl+FD+phi12"]) if arm == "cl+FD+both6" else ""
+            b.append(f"{show if j == 0 else ''} & {lbl} & {cols} & {a['1nn']:.2f} & {d} & {d2} & {a['lda']:.2f} & {a['rf']:.2f} \\\\")
         if i < len(DS) - 1:
             b.append("\\midrule")
     b += ["\\bottomrule", "\\end{tabular}",

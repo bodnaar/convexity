@@ -107,6 +107,35 @@ def tab_degeneracy():
 
 
 # ---- Table: matched-dimension, three classifiers (orthogonal set) ---------
+def _matched_delta():
+    """Paired-bootstrap gain of the two-rule set over the one-rule set with the same
+    number of columns (both@6 vs phi@12, both@12 vs phi@24), 1NN leave-one-out."""
+    import pickle
+    slot = pickle.load(open(os.path.join(HERE, "slotcols.pkl"), "rb"))
+    disj = {"mpeg7": "mpeg7_disjunctive.csv", "animal2000": "animal2000_disjunctive.csv",
+            "swedishleaves": "swedishleaves_disjunctive.csv"}
+    out = {}
+    for name, stem in DS:
+        rows = list(csv.DictReader(open(os.path.join(HERE, FEAT[stem]))))
+        dr = {r["shape_id"]: r for r in csv.DictReader(open(os.path.join(HERE, disj[stem])))}
+        rows = [r for r in rows if r["shape_id"] in dr]
+        y = np.array([r["cls"] for r in rows])
+        CL = np.array([[float(r[k]) for k in ("area_ratio", "circularity", "hu1", "hu2")] for r in rows])
+        S = np.array([[float(r[f"sig{i}"]) for i in range(64)] for r in rows])
+        SD = np.array([[float(dr[r["shape_id"]][f"sigd{i}"]) for i in range(64)] for r in rows])
+        for key, kb, ka in (("both6", 6, 12), ("both12", 12, 24)):
+            ib, ia = slot[kb], slot[ka]
+            ca = correct(np.c_[CL, S[:, ia]], y)
+            cb = correct(np.c_[CL, S[:, ib], SD[:, ib]], y)
+            out[(name, key)] = ci(ca, cb)
+    return out
+
+
+def _fmt_delta(m, lo, hi):
+    star = "$^{*}$" if (lo > 0 or hi < 0) else ""
+    return f"${m:+.2f}${star} $[{lo:+.2f},{hi:+.2f}]$"
+
+
 def tab_matched():
     rf = {}
     with open(os.path.join(HERE, "rf_results.csv")) as f:
@@ -125,14 +154,16 @@ def tab_matched():
     show = {"classical": "classical only", "phi12": "$+\\,\\varphi$ ($k{=}12$)",
             "phiD12": "$+\\,\\varphi_D$ ($k{=}12$)", "both6": "$+\\,\\varphi,\\varphi_D$ ($k{=}6$)",
             "phi24": "$+\\,\\varphi$ ($k{=}24$)", "both12": "$+\\,\\varphi,\\varphi_D$ ($k{=}12$)"}
-    b = ["\\begin{tabular}{@{}llcccc@{}}", "\\toprule",
-         "dataset & feature set & cols & 1NN & LDA & RF \\\\", "\\midrule"]
+    delta = _matched_delta()
+    b = ["\\begin{tabular}{@{}llrrcrr@{}}", "\\toprule",
+         "dataset & feature set & cols & 1NN & $\\Delta$1NN $[95\\%]$ & LDA & RF \\\\", "\\midrule"]
     for name, _ in DS:
         first = True
         for key, rfkey, cols in armmap:
             lbl = show[key]
+            d = _fmt_delta(*delta[(name, key)]) if (name, key) in delta else ""
             b.append(f"{name if first else ''} & {lbl} & {cols} & "
-                     f"{nn[name][key]:.2f} & {lda[name][key]:.2f} & {rf[(name, rfkey)]:.2f} \\\\")
+                     f"{nn[name][key]:.2f} & {d} & {lda[name][key]:.2f} & {rf[(name, rfkey)]:.2f} \\\\")
             first = False
         b.append("\\midrule" if name != DS[-1][0] else "")
     b = [x for x in b if x != ""]

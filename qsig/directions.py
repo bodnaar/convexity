@@ -65,7 +65,10 @@ COST_MODELS = {
     "published":   ("norm2", 1.41900, 0.572400),
     "reference":   ("norm2", 1.71876, 0.074227),
     "fast+numba":  ("norm2", 0.00139, 0.000251),
-    "rows+numba":  ("pq",    0.00150, 0.000655),
+    # refit 2026-10-13 on nirgnode200 (pinned, single thread) by
+    # experiments/pairs_and_rules/refit_cost_model.py from overhead_phiD.json;
+    # previously ("pq", 0.00150, 0.000655), source of that fit not recorded
+    "rows+numba":  ("pq",    0.00222, 0.000719),
 }
 
 

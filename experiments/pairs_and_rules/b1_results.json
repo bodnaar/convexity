@@ -1,0 +1,397 @@
+{
+ "MPEG-7": {
+  "n": 1400,
+  "acc": {
+   "cl": {
+    "1nn": 73.07,
+    "lda": 56.43
+   },
+   "cl+phi6": {
+    "1nn": 79.57,
+    "lda": 63.71
+   },
+   "cl+phi12": {
+    "1nn": 79.21,
+    "lda": 64.07
+   },
+   "cl+phi6+phiD6": {
+    "1nn": 82.57,
+    "lda": 69.79
+   },
+   "cl+phi6+par6": {
+    "1nn": 82.64,
+    "lda": 71.14
+   },
+   "cl+par6": {
+    "1nn": 80.43,
+    "lda": 67.5
+   },
+   "cl+phi6+phiD6+par6": {
+    "1nn": 84.5,
+    "lda": 75.14
+   },
+   "cl+FD": {
+    "1nn": 89.93,
+    "lda": 82.36
+   },
+   "cl+FD+phi6": {
+    "1nn": 90.71,
+    "lda": 83.79
+   },
+   "cl+FD+phi12": {
+    "1nn": 90.79,
+    "lda": 84.21
+   },
+   "cl+FD+phi6+phiD6": {
+    "1nn": 92.21,
+    "lda": 85.5
+   },
+   "cl+FD+phi6+par6": {
+    "1nn": 92.93,
+    "lda": 84.71
+   },
+   "cl+FD+par6": {
+    "1nn": 92.36,
+    "lda": 84.29
+   },
+   "cl+FD+phi6+phiD6+par6": {
+    "1nn": 93.07,
+    "lda": 86.14
+   }
+  },
+  "tests": {
+   "cl+phi6+phiD6 | cl+phi6": [
+    3.0,
+    1.29,
+    4.71
+   ],
+   "cl+phi6+par6 | cl+phi6": [
+    3.07,
+    1.14,
+    5.0
+   ],
+   "cl+phi6+phiD6 | cl+phi6+par6": [
+    -0.07,
+    -2.07,
+    1.86
+   ],
+   "cl+phi6+phiD6+par6 | cl+phi6+phiD6": [
+    1.93,
+    0.21,
+    3.71
+   ],
+   "cl+par6 | cl": [
+    7.36,
+    4.79,
+    9.86
+   ],
+   "cl+FD+phi6+phiD6 | cl+FD+phi6": [
+    1.5,
+    0.43,
+    2.64
+   ],
+   "cl+FD+phi6+par6 | cl+FD+phi6": [
+    2.21,
+    0.93,
+    3.64
+   ],
+   "cl+FD+phi6+phiD6 | cl+FD+phi6+par6": [
+    -0.71,
+    -1.86,
+    0.43
+   ],
+   "cl+FD+phi6+phiD6+par6 | cl+FD+phi6+phiD6": [
+    0.86,
+    -0.14,
+    1.86
+   ],
+   "cl+FD+par6 | cl+FD": [
+    2.43,
+    1.14,
+    3.79
+   ]
+  },
+  "abs_corr_par_phiD_per_direction": [
+   0.616,
+   0.582,
+   0.584,
+   0.668,
+   0.613,
+   0.62
+  ]
+ },
+ "Animal2000": {
+  "n": 2000,
+  "acc": {
+   "cl": {
+    "1nn": 31.9,
+    "lda": 33.15
+   },
+   "cl+phi6": {
+    "1nn": 37.5,
+    "lda": 38.85
+   },
+   "cl+phi12": {
+    "1nn": 37.9,
+    "lda": 38.0
+   },
+   "cl+phi6+phiD6": {
+    "1nn": 41.85,
+    "lda": 41.95
+   },
+   "cl+phi6+par6": {
+    "1nn": 42.65,
+    "lda": 40.9
+   },
+   "cl+par6": {
+    "1nn": 38.3,
+    "lda": 37.45
+   },
+   "cl+phi6+phiD6+par6": {
+    "1nn": 44.8,
+    "lda": 41.8
+   },
+   "cl+FD": {
+    "1nn": 47.4,
+    "lda": 48.05
+   },
+   "cl+FD+phi6": {
+    "1nn": 51.3,
+    "lda": 51.1
+   },
+   "cl+FD+phi12": {
+    "1nn": 49.95,
+    "lda": 50.45
+   },
+   "cl+FD+phi6+phiD6": {
+    "1nn": 52.3,
+    "lda": 51.0
+   },
+   "cl+FD+phi6+par6": {
+    "1nn": 53.6,
+    "lda": 52.15
+   },
+   "cl+FD+par6": {
+    "1nn": 50.75,
+    "lda": 50.2
+   },
+   "cl+FD+phi6+phiD6+par6": {
+    "1nn": 53.95,
+    "lda": 51.2
+   }
+  },
+  "tests": {
+   "cl+phi6+phiD6 | cl+phi6": [
+    4.35,
+    2.25,
+    6.45
+   ],
+   "cl+phi6+par6 | cl+phi6": [
+    5.15,
+    3.05,
+    7.2
+   ],
+   "cl+phi6+phiD6 | cl+phi6+par6": [
+    -0.8,
+    -2.9,
+    1.3
+   ],
+   "cl+phi6+phiD6+par6 | cl+phi6+phiD6": [
+    2.95,
+    1.2,
+    4.65
+   ],
+   "cl+par6 | cl": [
+    6.4,
+    4.05,
+    8.85
+   ],
+   "cl+FD+phi6+phiD6 | cl+FD+phi6": [
+    1.0,
+    -0.65,
+    2.7
+   ],
+   "cl+FD+phi6+par6 | cl+FD+phi6": [
+    2.3,
+    0.6,
+    3.95
+   ],
+   "cl+FD+phi6+phiD6 | cl+FD+phi6+par6": [
+    -1.3,
+    -3.1,
+    0.5
+   ],
+   "cl+FD+phi6+phiD6+par6 | cl+FD+phi6+phiD6": [
+    1.65,
+    0.25,
+    3.1
+   ],
+   "cl+FD+par6 | cl+FD": [
+    3.35,
+    1.6,
+    5.1
+   ]
+  },
+  "abs_corr_par_phiD_per_direction": [
+   0.506,
+   0.459,
+   0.461,
+   0.543,
+   0.443,
+   0.452
+  ]
+ },
+ "SwedishLeaves": {
+  "n": 1125,
+  "acc": {
+   "cl": {
+    "1nn": 78.31,
+    "lda": 74.67
+   },
+   "cl+phi6": {
+    "1nn": 81.07,
+    "lda": 74.58
+   },
+   "cl+phi12": {
+    "1nn": 81.16,
+    "lda": 73.69
+   },
+   "cl+phi6+phiD6": {
+    "1nn": 82.31,
+    "lda": 79.64
+   },
+   "cl+phi6+par6": {
+    "1nn": 84.0,
+    "lda": 81.87
+   },
+   "cl+par6": {
+    "1nn": 83.82,
+    "lda": 81.69
+   },
+   "cl+phi6+phiD6+par6": {
+    "1nn": 86.76,
+    "lda": 83.02
+   },
+   "cl+FD": {
+    "1nn": 91.29,
+    "lda": 86.67
+   },
+   "cl+FD+phi6": {
+    "1nn": 92.09,
+    "lda": 87.02
+   },
+   "cl+FD+phi12": {
+    "1nn": 92.36,
+    "lda": 87.2
+   },
+   "cl+FD+phi6+phiD6": {
+    "1nn": 93.24,
+    "lda": 89.51
+   },
+   "cl+FD+phi6+par6": {
+    "1nn": 92.0,
+    "lda": 88.44
+   },
+   "cl+FD+par6": {
+    "1nn": 91.56,
+    "lda": 88.62
+   },
+   "cl+FD+phi6+phiD6+par6": {
+    "1nn": 92.27,
+    "lda": 89.51
+   }
+  },
+  "tests": {
+   "cl+phi6+phiD6 | cl+phi6": [
+    1.24,
+    -0.98,
+    3.38
+   ],
+   "cl+phi6+par6 | cl+phi6": [
+    2.93,
+    0.44,
+    5.42
+   ],
+   "cl+phi6+phiD6 | cl+phi6+par6": [
+    -1.69,
+    -4.09,
+    0.71
+   ],
+   "cl+phi6+phiD6+par6 | cl+phi6+phiD6": [
+    4.44,
+    2.4,
+    6.58
+   ],
+   "cl+par6 | cl": [
+    5.51,
+    2.84,
+    8.09
+   ],
+   "cl+FD+phi6+phiD6 | cl+FD+phi6": [
+    1.16,
+    -0.09,
+    2.49
+   ],
+   "cl+FD+phi6+par6 | cl+FD+phi6": [
+    -0.09,
+    -1.42,
+    1.16
+   ],
+   "cl+FD+phi6+phiD6 | cl+FD+phi6+par6": [
+    1.24,
+    -0.09,
+    2.58
+   ],
+   "cl+FD+phi6+phiD6+par6 | cl+FD+phi6+phiD6": [
+    -0.98,
+    -2.22,
+    0.18
+   ],
+   "cl+FD+par6 | cl+FD": [
+    0.27,
+    -0.98,
+    1.51
+   ]
+  },
+  "abs_corr_par_phiD_per_direction": [
+   0.272,
+   0.488,
+   0.622,
+   0.675,
+   0.602,
+   0.475
+  ]
+ },
+ "extra_tests": {
+  "MPEG-7 cl: +phiD6 | phi6+par6": [
+   1.86,
+   0.36,
+   3.21
+  ],
+  "MPEG-7 cl+FD: +phiD6 | phi6+par6": [
+   0.14,
+   -0.71,
+   1.0
+  ],
+  "Animal2000 cl: +phiD6 | phi6+par6": [
+   2.15,
+   0.35,
+   4.0
+  ],
+  "Animal2000 cl+FD: +phiD6 | phi6+par6": [
+   0.35,
+   -1.15,
+   1.9
+  ],
+  "SwedishLeaves cl: +phiD6 | phi6+par6": [
+   2.76,
+   0.98,
+   4.53
+  ],
+  "SwedishLeaves cl+FD: +phiD6 | phi6+par6": [
+   0.27,
+   -0.8,
+   1.33
+  ]
+ }
+}

@@ -97,7 +97,7 @@ def cost_law():
     orth, gen = [], []
     for v in [(1,0),(2,-1),(3,-1),(3,-2),(4,-1),(5,-2),(5,-3),(7,-2),(7,-4),(7,-6),(9,-5),(11,-3)]:
         s2 = pairs.perp(v)
-        rc = min(abs(v[0])+abs(s2[0]), abs(v[1])+abs(s2[1]))
+        rc = abs(v[0])+abs(s2[0])  # kernel row count (mask rows)
         orth.append((abs(pairs.det(v, s2)), rc, max(max(map(abs,v)), max(map(abs,s2))),
                      f"{tm(lambda im, v=v: fast.compute(im, OBJECT, BACKGROUND, v, 'rows')):.4f}"))
     V = []
@@ -116,7 +116,7 @@ def cost_law():
             seen.add(k)
             mc = max(max(map(abs,r)), max(map(abs,s2)))
             if mc > 8: continue
-            rc = min(abs(r[0])+abs(s2[0]), abs(r[1])+abs(s2[1]))
+            rc = abs(r[0])+abs(s2[0])  # kernel row count (mask rows)
             gen.append((d, rc, mc,
                         f"{tm(lambda im, r=r, s2=s2: pairs.compute(im, OBJECT, BACKGROUND, r, s2, 'rows')):.4f}"))
             if len(gen) >= 45: break
